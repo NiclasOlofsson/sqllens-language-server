@@ -59,6 +59,70 @@ Every feature carries real source positions (no count-only or point-only output)
 - Pull diagnostics (`textDocument/diagnostic`): the same items as the push path,
   served on demand; push and pull coexist and the client picks whichever it supports.
 
+## Feature status
+
+A SQL server needs only a subset of LSP's ~30 request types: some don't apply to
+SQL (type hierarchy, document color, monikers), and a few are deferred (formatting,
+project-wide navigation). Where the server stands today, feature by feature:
+
+### Language features
+
+| Feature | Status |
+| --- | --- |
+| Completion (+ resolve) | ✅ |
+| Hover | ✅ |
+| Hover — nullability | ✅ (` — not null` / ` — nullable` suffix when provable) |
+| Signature help | ✅ |
+| Go to definition | ✅ |
+| Find references | ✅ |
+| Document highlight | ✅ |
+| Document symbols | ✅ |
+| Folding range | ✅ |
+| Selection range | ✅ |
+| Semantic tokens (full / range / delta) | ✅ all three |
+| Inlay hints | ✅ (no resolve) |
+| Code lens | ✅ (no resolve) |
+| Go to declaration | ◻️ not yet |
+| Go to type definition | ◻️ not yet |
+| Go to implementation | ◻️ not yet — name → its defining query (view / model); needs the project model |
+| Call hierarchy | ◻️ not yet — the CTE / view / model dependency graph |
+| Document link | ◻️ not yet |
+| Linked editing range | ◻️ not yet — live alias / name sync-edit |
+| Code action (quick fixes) | ◻️ next phase |
+| Rename (+ prepare) | ◻️ next phase |
+| Formatting / range / on-type | ◻️ deferred (external formatter) |
+| Inline values | ◻️ debugger surface |
+| Type hierarchy | — n/a — SQL has no type-inheritance relation |
+| Document color | — n/a — no color literals |
+| Moniker | — n/a — LSIF / cross-repo indexing concern |
+
+### Diagnostics & document sync
+
+| Feature | Status |
+| --- | --- |
+| Diagnostics — push (`publishDiagnostics`) | ✅ |
+| Diagnostics — call signature (arity / argument type) | ✅ (curated tables; never-wrong, per-dialect coercion) |
+| Diagnostics — pull (document) | ✅ |
+| Diagnostics — pull (workspace) | ◻️ not yet |
+| Text sync — open / change / close | ✅ (full-document) |
+| Incremental sync | ◻️ full-document only (fine at SQL file sizes) |
+| Save notifications (`didSave` / `willSave`) | ◻️ not yet |
+| Notebook document sync | ◻️ not yet |
+
+### Workspace features
+
+| Feature | Status |
+| --- | --- |
+| Workspace symbols | ◻️ needs a project / multi-file model |
+| Execute command | ◻️ not yet |
+| Configuration / watched-files | ◻️ not yet (protocol config; file-based `.sqllens.json` config exists) |
+| File operations (create / rename / delete) | ◻️ not yet |
+
+Legend: ✅ implemented · ◻️ not yet / deferred · — not applicable to SQL. The
+deferred items are tracked work: rename and code actions are the next LSP phase,
+workspace symbols need the project model, and formatting is expected to wrap an
+existing external formatter.
+
 ## Dialect and schema config: `.sqllens.json`
 
 A document's dialect is configured, never guessed. On initialize, the server reads
