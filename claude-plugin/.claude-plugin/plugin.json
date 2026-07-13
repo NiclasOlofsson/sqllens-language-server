@@ -1,7 +1,7 @@
 {
 	"name": "sqllens-lsp",
 	"displayName": "sqllens SQL Language Server",
-	"description": "Multi-dialect SQL code intelligence for .sql files: positioned diagnostics, typed hover, go-to-definition, references and more, powered by the sqllens analyzer. Requires the sqllens-language-server binary (npm install -g sqllens-language-server).",
+	"description": "Multi-dialect SQL code intelligence for .sql files: positioned diagnostics, typed hover, go-to-definition, references and more, powered by the sqllens analyzer. Requires the sqllens-language-server npm package, installed globally or in the project (launched via npx, never auto-downloaded).",
 	"version": "0.1.0",
 	"author": {
 		"name": "Niclas Olofsson",

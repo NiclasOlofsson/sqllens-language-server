@@ -1,7 +1,7 @@
 {
 	"sql": {
-		"command": "sqllens-language-server",
-		"args": ["--stdio"],
+		"command": "npx",
+		"args": ["--no-install", "sqllens-language-server", "--stdio"],
 		"extensionToLanguage": {
 			".sql": "sql"
 		}

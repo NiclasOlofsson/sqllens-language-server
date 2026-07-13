@@ -10,10 +10,19 @@ source-first: no database connection needed.
 
 ## Install
 
-1. Install the language server (the plugin wires it up, it does not bundle it):
+1. Install the language server (the plugin wires it up, it does not bundle it).
+   Either globally:
 
 ```bash
 npm install -g sqllens-language-server
+```
+
+   or per project (the plugin launches via `npx --no-install`, which resolves
+   your project's `node_modules` first, then the global install — so a local
+   install also pins the server version per project):
+
+```bash
+npm install -D sqllens-language-server
 ```
 
 2. Install the plugin:
@@ -64,9 +73,11 @@ Three things to ask Claude that exercise the plugin end to end:
 
 ## Troubleshooting
 
-- "Executable not found in $PATH" in `/plugin` → Errors: step 1 was skipped or
-  the npm global bin dir is not on PATH. `sqllens-language-server --stdio`
-  should start (and wait silently) in a terminal.
+- Server errors on startup (`npm error` / "canceled due to missing packages" in
+  `/plugin` → Errors): step 1 was skipped — the server is installed neither in
+  the project nor globally. `npx --no-install sqllens-language-server --stdio`
+  should start (and wait silently) in a terminal at your workspace root. The
+  plugin never downloads the server; it only runs what you installed.
 - Every file treated as Databricks SQL: add a `.sqllens.json` with your
   dialect(s).
 - No unknown-table/column diagnostics: expected without a schema catalog —
