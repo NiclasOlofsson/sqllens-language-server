@@ -1,0 +1,20 @@
+{
+	"name": "sqllens-language-server",
+	"description": "Self-hosted marketplace for the sqllens SQL language-server Claude Code plugin.",
+	"owner": {
+		"name": "Niclas Olofsson",
+		"url": "https://github.com/NiclasOlofsson"
+	},
+	"plugins": [
+		{
+			"name": "sqllens-lsp",
+			"description": "Multi-dialect SQL code intelligence for .sql files, powered by the sqllens analyzer.",
+			"source": "./claude-plugin",
+			"category": "development",
+			"author": {
+				"name": "Niclas Olofsson",
+				"url": "https://github.com/NiclasOlofsson"
+			}
+		}
+	]
+}

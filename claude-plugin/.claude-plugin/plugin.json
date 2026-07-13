@@ -1,0 +1,14 @@
+{
+	"name": "sqllens-lsp",
+	"displayName": "sqllens SQL Language Server",
+	"description": "Multi-dialect SQL code intelligence for .sql files: positioned diagnostics, typed hover, go-to-definition, references and more, powered by the sqllens analyzer. Requires the sqllens-language-server binary (npm install -g sqllens-language-server).",
+	"version": "0.1.0",
+	"author": {
+		"name": "Niclas Olofsson",
+		"url": "https://github.com/NiclasOlofsson"
+	},
+	"homepage": "https://github.com/NiclasOlofsson/sqllens-language-server",
+	"repository": "https://github.com/NiclasOlofsson/sqllens-language-server",
+	"license": "MIT",
+	"keywords": ["sql", "lsp", "language-server", "code-intelligence", "sqllens", "databricks", "snowflake", "postgres", "tsql", "bigquery"]
+}

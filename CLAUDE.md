@@ -11,8 +11,11 @@ dbt-enabled LSP later (the dbt machinery already exists in the sibling dbt Anvil
 repo, `../dbt-studio-vscode`). "Not a dbt tool" is a branding statement, not a
 functional limit.
 
-npm name: `sqllens-language-server`. Claude Code plugin planned in `plugin/`
-(slug `sqllens-lsp`), with this repo doubling as a self-hosted marketplace.
+npm name: `sqllens-language-server`. Claude Code plugin planned in `claude-plugin/`
+(slug `sqllens-lsp`), with this repo doubling as a self-hosted marketplace. The
+thin VS Code client extension (Milestone 2) lives in `vscode-extension/` as a
+self-contained sub-package (own package.json/build/tests, not an npm workspace),
+so the root release train stays server-only.
 
 ## Where the source came from
 

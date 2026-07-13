@@ -1,0 +1,9 @@
+{
+	"sql": {
+		"command": "sqllens-language-server",
+		"args": ["--stdio"],
+		"extensionToLanguage": {
+			".sql": "sql"
+		}
+	}
+}
