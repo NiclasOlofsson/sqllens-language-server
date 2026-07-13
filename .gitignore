@@ -1,0 +1,13 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# scratch / experiments — never committed (globally ignored too; kept here for clarity)
+temp_auto/
+
+# per-feature implementation plans (planning scratch) — not project documentation.
+.claude/plans/
+.claude/PLAN.md

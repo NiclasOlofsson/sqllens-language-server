@@ -1,0 +1,9 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"paths": {
+			"sqllens": ["../sql-dialect-grammars/src/index.ts"],
+			"sqllens/minijinja": ["../sql-dialect-grammars/src/minijinja/index.ts"]
+		}
+	}
+}

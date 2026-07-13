@@ -1,0 +1,89 @@
+{
+	"name": "sqllens-language-server",
+	"version": "0.1.0",
+	"description": "A multi-dialect SQL language server (LSP) built on sqllens: diagnostics, hover, go-to-definition, references, completion, signature help, semantic tokens, and more. Source-first, semantics-first.",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"bin": {
+		"sqllens-language-server": "./bin/cli.js"
+	},
+	"files": [
+		"dist",
+		"bin",
+		"LICENSE",
+		"README.md"
+	],
+	"engines": {
+		"node": ">=20.11"
+	},
+	"directories": {
+		"test": "tests"
+	},
+	"keywords": [
+		"sql",
+		"lsp",
+		"language-server",
+		"sqllens",
+		"sql-language-server",
+		"dbt",
+		"databricks",
+		"tsql",
+		"snowflake",
+		"bigquery",
+		"redshift",
+		"postgres",
+		"duckdb",
+		"trino",
+		"sqlite",
+		"mysql"
+	],
+	"author": "Niclas Olofsson",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/NiclasOlofsson/sqllens-language-server.git"
+	},
+	"bugs": {
+		"url": "https://github.com/NiclasOlofsson/sqllens-language-server/issues"
+	},
+	"homepage": "https://github.com/NiclasOlofsson/sqllens-language-server#readme",
+	"license": "MIT",
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"prepublishOnly": "npm run build",
+		"dev": "node --import tsx src/main.ts --stdio",
+		"typecheck": "tsgo -p tsconfig.json",
+		"test": "vitest run",
+		"smoke": "node scripts/smoke.mjs",
+		"format": "prettier --write .",
+		"format:check": "prettier --check ."
+	},
+	"dependencies": {
+		"antlr4ng": "^3.0.16",
+		"minimatch": "^10.2.5",
+		"sqllens": "^1.1.0",
+		"vscode-languageserver": "^10.0.1",
+		"vscode-languageserver-protocol": "^3.18.1",
+		"vscode-languageserver-textdocument": "^1.0.12",
+		"vscode-languageserver-types": "^3.18.0"
+	},
+	"devDependencies": {
+		"@semantic-release/changelog": "^6.0.3",
+		"@semantic-release/git": "^10.0.1",
+		"@semantic-release/github": "^12.0.9",
+		"@semantic-release/npm": "^13.1.5",
+		"@types/node": "^25.9.2",
+		"@typescript/native-preview": "^7.0.0-dev.20260605.1",
+		"prettier": "^3.8.3",
+		"semantic-release": "^25.0.5",
+		"tsx": "^4.22.4",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.8"
+	}
+}
