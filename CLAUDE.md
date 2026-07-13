@@ -63,6 +63,12 @@ VS Code thin client later, dbt mode after SQL v1) live at
 
 ## Status
 
-Bootstrapped 2026-07-13: seed lifted, imports rewired to the published sqllens,
-typecheck/build/tests green (190 tests), stdio smoke passing. Next: first
-release + Claude Code plugin (Milestone 1 in the plan).
+Bootstrapped 2026-07-13; v0.1.0 published to npm 2026-07-14 (manual first
+publish, tag v0.1.0 is the semantic-release baseline; releases via
+`gh workflow run release.yml` once npm trusted publishing is linked). Repo is
+public and doubles as a live plugin marketplace. Claude plugin verified
+end-to-end on Claude Code 2.1.161; current 2.1.20x has an upstream Windows
+LSP-launcher regression breaking ALL plugin LSP servers (their issue #73961) —
+test by pinning `claude install 2.1.161`. Test workspace + protocol probe
+drivers live in `temp_auto/localtest/`. Next: community-marketplace submission,
+then Milestone 2 (VS Code extension).
