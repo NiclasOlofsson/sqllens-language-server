@@ -9,6 +9,7 @@ import {
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { fileURLToPath } from "node:url";
 import { relative } from "node:path";
+import { appendFileSync } from "node:fs";
 import { SqlSession, type SchemaProvider } from "sqllens";
 import { loadDialectConfig, type DialectConfig } from "./dialect-config.js";
 import { computeDiagnostics } from "./features/diagnostics.js";
@@ -79,7 +80,34 @@ export interface ServerOptions {
 }
 
 export function startServer(connection: Connection, options: ServerOptions = {}): void {
-	const documents = new TextDocuments<TextDocument>(TextDocument);
+	// SQLLENS_TRACE_SYNC=<file>: append one JSON line per didChange showing the raw
+	// change-event shape the client sent — {range,...} = incremental patch, {full} =
+	// whole-document. Diagnostic aid for verifying client sync compliance; off unless set.
+	const tracePath = process.env.SQLLENS_TRACE_SYNC;
+	const docsConfig = tracePath
+		? {
+				create: (uri: string, languageId: string, version: number, content: string) => {
+					try {
+						appendFileSync(tracePath, JSON.stringify({ uri, version, open: content.length }) + "\n");
+					} catch {
+						/* tracing must never break sync */
+					}
+					return TextDocument.create(uri, languageId, version, content);
+				},
+				update: (doc: TextDocument, changes: Parameters<typeof TextDocument.update>[1], version: number) => {
+					const shapes = changes.map((c) =>
+						"range" in c ? { range: c.range, textLength: c.text.length } : { full: c.text.length },
+					);
+					try {
+						appendFileSync(tracePath, JSON.stringify({ uri: doc.uri, version, changes: shapes }) + "\n");
+					} catch {
+						/* tracing must never break sync */
+					}
+					return TextDocument.update(doc, changes, version);
+				},
+			}
+		: TextDocument;
+	const documents = new TextDocuments<TextDocument>(docsConfig);
 	// One SqlSession per open file, keyed by URI; rebuilt on open/change.
 	const sessions = new Map<string, SqlSession>();
 	let rootDir = process.cwd();
@@ -141,7 +169,7 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 		for (const w of config.warnings) connection.console.info(w);
 		return {
 			capabilities: {
-				textDocumentSync: TextDocumentSyncKind.Full,
+				textDocumentSync: TextDocumentSyncKind.Incremental,
 				hoverProvider: true,
 				definitionProvider: true,
 				referencesProvider: true,
