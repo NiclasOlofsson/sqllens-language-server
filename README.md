@@ -25,41 +25,11 @@ sqllens-language-server --stdio
 The server speaks LSP over stdio (the `--stdio` flag is required). It is meant to be
 launched by an editor / LSP client, not used interactively from a terminal.
 
-The server holds one session per open file (rebuilt on edit) and serves every feature
-from that cached document.
-
-## Features
-
-Every feature carries real source positions (no count-only or point-only output).
-
-- Diagnostics: syntax errors from the parser plus semantic diagnostics from
-  `qualify` (unknown table/column/field), each as a positioned range.
-- Hover: the inferred type of the expression under the cursor, ranged to the
-  covering expression's source span.
-- Go-to-definition: jumps to a symbol's definition span (CTE, alias, derived
-  column).
-- References: find-all-occurrences plus the declaration of the symbol under the
-  cursor.
-- Document highlight: the same occurrences scoped to the open document.
-- Document symbols: the symbol tree (sources, CTEs, output columns) with each
-  symbol's span.
-- Code lens: a reference-count lens over each declared symbol.
-- Folding ranges: foldable regions for statements, CTEs, and subqueries.
-- Selection ranges: expand/shrink selection following the syntax tree from the
-  caret outward.
-- Inlay hints: inline output-column types, shown at each projection.
-- Semantic tokens: semantic highlighting from the document's token stream, each
-  token with its exact span and role; serves full, range, and delta requests.
-- Completion: scope-aware suggestions at the caret (keywords, schema
-  tables/columns, function names). Works on mid-edit / invalid input.
-- Completion resolve: lazily fills a completion item's signature detail for
-  function candidates.
-- Signature help: parameter hints while typing inside a call's parens, from a
-  curated per-dialect signature table.
-- Pull diagnostics (`textDocument/diagnostic`): the same items as the push path,
-  served on demand; push and pull coexist and the client picks whichever it supports.
-
 ## Feature status
+
+The server holds one session per open file (rebuilt on edit) and serves every feature
+from that cached document. Every feature carries real source positions (no count-only
+or point-only output), and the interactive features work on mid-edit / invalid input.
 
 A SQL server needs only a subset of LSP's ~30 request types: some don't apply to
 SQL (type hierarchy, document color, monikers), and a few are deferred (formatting,
