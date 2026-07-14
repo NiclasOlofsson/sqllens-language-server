@@ -17,4 +17,16 @@ describe("semantic tokens function overlay", () => {
 		for (let i = 3; i < data.length; i += 5) types.push(data[i]);
 		expect(types).toContain(fnType);
 	});
+
+	it("keyword-lexed call sites (duckdb coalesce) also emit function, and built-ins carry defaultLibrary", () => {
+		const session = SqlSession.create("select coalesce(amount, 1), round(amount, 2) from sales", "duckdb");
+		const fnType = SEMANTIC_LEGEND.tokenTypes.indexOf("function");
+		const data = computeSemanticTokens(session).data;
+		const fns = [];
+		for (let i = 0; i < data.length; i += 5) if (data[i + 3] === fnType) fns.push(data[i + 4]);
+		// both call sites present as function tokens...
+		expect(fns.length).toBe(2);
+		// ...and both are dialect built-ins → defaultLibrary bit set
+		expect(fns.every((m) => (m & 1) === 1)).toBe(true);
+	});
 });

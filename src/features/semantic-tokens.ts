@@ -47,7 +47,12 @@ function functionStarts(session: SqlSession): Map<string, number> {
 	const starts = new Map<string, number>();
 	for (const s of session.deriveSymbols()) {
 		if (s.kind !== "function") continue;
-		const known = lookupSignature(session.dialect, s.name.toLowerCase()) !== undefined;
+		// "Standard library" = the dialect knows this function — through the curated
+		// signature table OR the inference registry (either proves it's a built-in;
+		// their coverage differs, e.g. duckdb has round's signature but types upper).
+		const known =
+			lookupSignature(session.dialect, s.name.toLowerCase()) !== undefined ||
+			(s.type !== undefined && s.type.kind !== "unknown");
 		starts.set(`${s.span.line}:${s.span.column}`, known ? DEFAULT_LIBRARY : 0);
 	}
 	return starts;
@@ -59,8 +64,11 @@ function pushTokens(builder: SemanticTokensBuilder, tokens: readonly Token[], fn
 	for (const token of tokens) {
 		let typeIndex = ROLE_TO_TYPE.get(token.role);
 		let modifiers = 0;
-		const fn = token.role === "identifier" ? fnStarts?.get(`${token.line}:${token.column}`) : undefined;
-		if (fn !== undefined) {
+		// A call site wins over the lexed role whatever that role was: ordinary
+		// functions lex as identifiers, but grammar-reserved ones (duckdb/postgres
+		// COALESCE) lex as keywords and must still highlight as functions.
+		const fn = fnStarts?.get(`${token.line}:${token.column}`);
+		if (fn !== undefined && (token.role === "identifier" || token.role === "keyword")) {
 			typeIndex = FUNCTION_TYPE;
 			modifiers = fn;
 		}
