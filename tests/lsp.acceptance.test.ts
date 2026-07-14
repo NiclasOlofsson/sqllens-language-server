@@ -844,11 +844,13 @@ describe("LSP multi-statement semantics (Task 6)", () => {
 		const uri = open("multi-sym.sql", text);
 		await waitForDiagnostics(uri);
 		const syms = (await client.sendRequest(DocumentSymbolRequest.type, { textDocument: { uri } })) as any[];
-		const names = syms.map((s) => s.name);
+		// Outputs nest under the final-query group (Anvil-aligned outline structure).
+		const flat = syms.flatMap((s: any) => [s, ...(s.children ?? [])]);
+		const names = flat.map((s: any) => s.name);
 		expect(names).toContain("a");
 		expect(names).toContain("b");
 		// the second statement's symbol carries its real doc-coordinate line (line 1), not the facade's line 0.
-		const b = syms.find((s) => s.name === "b");
+		const b = flat.find((s: any) => s.name === "b");
 		expect(b.range.start.line).toBe(1);
 	});
 

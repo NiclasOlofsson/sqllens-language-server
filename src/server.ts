@@ -424,7 +424,7 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 	connection.onDocumentSymbol((params) => {
 		const session = sessionFor(params.textDocument.uri);
 		if (!session) return [];
-		return computeDocumentSymbols(session);
+		return computeDocumentSymbols(session, params.textDocument.uri);
 	});
 
 	connection.onFoldingRanges((params) => {

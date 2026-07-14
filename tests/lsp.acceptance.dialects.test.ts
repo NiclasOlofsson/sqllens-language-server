@@ -124,7 +124,9 @@ describe.each(DIALECTS)("LSP over %s", (d) => {
 		const uri = h.open(`sym.${d}.sql`, "SELECT amount AS amount_out FROM sales");
 		await h.waitForDiagnostics(uri);
 		const syms = await h.client.sendRequest(DocumentSymbolRequest.type, { textDocument: { uri } });
-		expect((syms ?? []).map((s: { name: string }) => s.name)).toContain("amount_out");
+		// Outputs nest under the final-query group (Anvil-aligned outline structure).
+		const flat = (syms ?? []).flatMap((s: any) => [s, ...(s.children ?? [])]);
+		expect(flat.map((s: { name: string }) => s.name)).toContain("amount_out");
 	});
 
 	it("inlay hints type the projection", async () => {
