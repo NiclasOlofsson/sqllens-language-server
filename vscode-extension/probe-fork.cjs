@@ -13,8 +13,7 @@ child.on("error", (e) => console.log("child error:", e.message));
 
 const conn = createMessageConnection(new IPCMessageReader(child), new IPCMessageWriter(child));
 conn.listen();
-conn
-	.sendRequest("initialize", { processId: process.pid, rootUri: null, capabilities: {} })
+conn.sendRequest("initialize", { processId: process.pid, rootUri: null, capabilities: {} })
 	.then((r) => {
 		console.log("INITIALIZE OK — hoverProvider:", r.capabilities.hoverProvider === true);
 		child.kill();

@@ -6,8 +6,7 @@ import type { DocumentSymbol } from "vscode-languageserver-types";
 
 const session = (sql: string) => SqlSession.create(sql, "databricks");
 
-const flatten = (syms: DocumentSymbol[]): DocumentSymbol[] =>
-	syms.flatMap((s) => [s, ...flatten(s.children ?? [])]);
+const flatten = (syms: DocumentSymbol[]): DocumentSymbol[] => syms.flatMap((s) => [s, ...flatten(s.children ?? [])]);
 
 describe("computeDocumentSymbols", () => {
 	it("lists a CTE as a group with its output columns as children (Anvil structure)", () => {

@@ -5,10 +5,7 @@
 			"name": "Run extension (test workspace)",
 			"type": "extensionHost",
 			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}",
-				"${workspaceFolder}/../temp_auto/localtest"
-			],
+			"args": ["--extensionDevelopmentPath=${workspaceFolder}", "${workspaceFolder}/../temp_auto/localtest"],
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"preLaunchTask": "npm: build"
 		}

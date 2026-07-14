@@ -10,5 +10,16 @@
 	"homepage": "https://github.com/NiclasOlofsson/sqllens-language-server",
 	"repository": "https://github.com/NiclasOlofsson/sqllens-language-server",
 	"license": "MIT",
-	"keywords": ["sql", "lsp", "language-server", "code-intelligence", "sqllens", "databricks", "snowflake", "postgres", "tsql", "bigquery"]
+	"keywords": [
+		"sql",
+		"lsp",
+		"language-server",
+		"code-intelligence",
+		"sqllens",
+		"databricks",
+		"snowflake",
+		"postgres",
+		"tsql",
+		"bigquery"
+	]
 }

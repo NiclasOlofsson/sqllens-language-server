@@ -72,7 +72,10 @@ export function computeDocumentSymbols(session: SqlSession, uri?: string): Docum
 	// the file — Anvil's "model" framing; falls back to "query" without a uri.
 	const finals = (outputsByFrame.get("_main_") ?? []).map(columnSymbol);
 	if (finals.length > 0) {
-		const stem = uri?.split(/[\\/]/).pop()?.replace(/\.[^.]*$/, "");
+		const stem = uri
+			?.split(/[\\/]/)
+			.pop()
+			?.replace(/\.[^.]*$/, "");
 		const own = finals[0].range;
 		out.push({
 			name: stem || "query",
