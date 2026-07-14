@@ -53,6 +53,18 @@ describe("lsp .sqllens.json diagnostics, quickfixes, live reload", () => {
 		expect(actions[0].edit?.changes?.[configUri]?.[0]?.newText).toBe('"duckdb"');
 		expect(actions[0].edit?.changes?.[configUri]?.[0]?.range).toEqual(diag.range);
 
+		// 3b) The SQL document's hint diagnostic carries the SAME fixes as cross-file
+		//     workspace edits into .sqllens.json — fixable from where the user is.
+		const hintRange = sqlDiags.diagnostics[0].range;
+		const fromSql = (await h.client.sendRequest(CodeActionRequest.type, {
+			textDocument: { uri: sqlUri },
+			range: hintRange,
+			context: { diagnostics: [sqlDiags.diagnostics[0]] },
+		})) as CodeAction[];
+		expect(fromSql.length).toBe(10);
+		expect(fromSql[0].title).toBe('Fix .sqllens.json: change dialect "duckdbsd" to "duckdb"');
+		expect(fromSql[0].edit?.changes?.[configUri]?.[0]?.newText).toBe('"duckdb"');
+
 		// 4) Live reload: editing the open config re-validates AND re-applies dialects —
 		//    config diagnostics clear, and the SQL document (now tsql) goes fully clean:
 		//    hint gone, TOP parses.

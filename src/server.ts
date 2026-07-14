@@ -317,30 +317,42 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 		forgetSemanticTokens(e.document.uri);
 	});
 
-	// Quickfixes on the config file: every unknown-dialect diagnostic intersecting the
-	// requested range gets one action per valid dialect, closest name first (preferred).
+	// Quickfixes for config problems. On the config file itself: every unknown-dialect
+	// diagnostic intersecting the requested range gets one action per valid dialect,
+	// closest name first (preferred), editing the value in place. On a SQL document:
+	// the config-hint diagnostic (top of file, while the config is broken) offers the
+	// SAME fixes as cross-file workspace edits into .sqllens.json — the fix belongs
+	// wherever the user actually is.
 	connection.onCodeAction((params) => {
-		if (!isConfigUri(params.textDocument.uri)) return [];
 		const overlaps = (a: Range, b: Range): boolean => {
 			const before = (p: { line: number; character: number }, q: { line: number; character: number }) =>
 				p.line < q.line || (p.line === q.line && p.character <= q.character);
 			return before(a.start, b.end) && before(b.start, a.end);
 		};
+		const onConfig = isConfigUri(params.textDocument.uri);
+		if (!onConfig) {
+			// SQL docs: only the zero-width hint at 0:0 carries actions, and only while broken.
+			const hint = configHint()[0];
+			if (!hint || !overlaps(hint.range, params.range)) return [];
+		}
 		const actions: CodeAction[] = [];
 		for (const { diagnostic, badValue } of configDiagnostics()) {
-			if (badValue === undefined || !overlaps(diagnostic.range, params.range)) continue;
+			if (badValue === undefined) continue;
+			if (onConfig && !overlaps(diagnostic.range, params.range)) continue;
 			const ranked = [...PRIMARY_DIALECTS].sort(
 				(a, b) => editDistance(badValue.toLowerCase(), a) - editDistance(badValue.toLowerCase(), b),
 			);
 			ranked.forEach((dialect, i) =>
 				actions.push({
-					title: `Change dialect to "${dialect}"`,
+					title: onConfig
+						? `Change dialect to "${dialect}"`
+						: `Fix .sqllens.json: change dialect "${badValue}" to "${dialect}"`,
 					kind: CodeActionKind.QuickFix,
-					diagnostics: [diagnostic],
+					diagnostics: [onConfig ? diagnostic : configHint()[0]],
 					isPreferred: i === 0,
 					edit: {
 						changes: {
-							[params.textDocument.uri]: [{ range: diagnostic.range, newText: `"${dialect}"` }],
+							[configUri()]: [{ range: diagnostic.range, newText: `"${dialect}"` }],
 						},
 					},
 				}),
