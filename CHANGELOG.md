@@ -1,3 +1,17 @@
+# [0.3.0](https://github.com/NiclasOlofsson/sqllens-language-server/compare/v0.2.0...v0.3.0) (2026-07-14)
+
+
+### Bug Fixes
+
+* **ci:** treat Context7 too-early cooldown as soft skip ([80ba742](https://github.com/NiclasOlofsson/sqllens-language-server/commit/80ba7420ba75e69557bd31c97e15d2eafec2743f))
+
+
+### Features
+
+* **cli:** --help and --version; friendly usage on missing transport ([c2faf49](https://github.com/NiclasOlofsson/sqllens-language-server/commit/c2faf4999006b5c4afe075f4acabcaf5e3e5c0f9))
+* JS/ESM plugin system (providers, hooks, config layering) ([6b1653e](https://github.com/NiclasOlofsson/sqllens-language-server/commit/6b1653e97653c4f0c9d392e4d80e4711d0b37fa3))
+* sqllens 1.2.0, harvested signature tables and overload sets ([7c56574](https://github.com/NiclasOlofsson/sqllens-language-server/commit/7c56574c684b542962d26bc52f888499eeb17b87))
+
 # [0.2.0](https://github.com/NiclasOlofsson/sqllens-language-server/compare/v0.1.0...v0.2.0) (2026-07-14)
 
 
