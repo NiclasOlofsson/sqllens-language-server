@@ -369,8 +369,11 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 	// Pull diagnostics (textDocument/diagnostic): same items as the push path, on demand.
 	// Push (above) and pull coexist; the client picks whichever it supports.
 	connection.languages.diagnostics.on((params) => {
-		if (isConfigUri(params.textDocument.uri))
-			return { kind: "full" as const, items: configDiagnostics().map((d) => d.diagnostic) };
+		// Config diagnostics travel ONLY on the push channel: push works for a closed
+		// file (Problems shows the broken config before it's ever opened) and pushes
+		// replace per-uri so there is exactly one copy. Serving them here too made
+		// clients that both pull and receive pushes (VS Code) display duplicates.
+		if (isConfigUri(params.textDocument.uri)) return { kind: "full" as const, items: [] };
 		const session = sessionFor(params.textDocument.uri);
 		if (!session) return { kind: "full" as const, items: [] };
 		const report = computeDocumentDiagnostics(session, activeSchema());
