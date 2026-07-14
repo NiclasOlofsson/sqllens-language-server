@@ -1,6 +1,6 @@
 import { SemanticTokensBuilder } from "vscode-languageserver";
 import type { Range, SemanticTokens, SemanticTokensDelta, SemanticTokensLegend } from "vscode-languageserver-types";
-import { type SqlSession, type Token, type TokenRole } from "sqllens";
+import { lookupSignature, type SqlSession, type Token, type TokenRole } from "sqllens";
 
 // ---------------------------------------------------------------------------
 // Semantic tokens: semantic highlighting from the token artifact. Pure
@@ -14,10 +14,16 @@ import { type SqlSession, type Token, type TokenRole } from "sqllens";
 // The standard LSP token types our roles map to. tokenModifiers stays empty.
 const TOKEN_TYPES = ["keyword", "string", "number", "comment", "operator", "variable", "function"] as const;
 
+// One modifier: defaultLibrary marks call sites of functions the dialect's own
+// signature/type registries know — its standard library — so themes can render
+// built-ins apart from UDFs/unknown names (the same convention tsserver uses for
+// console/Math). Bit 0 of the modifier bitset.
 export const SEMANTIC_LEGEND: SemanticTokensLegend = {
 	tokenTypes: [...TOKEN_TYPES],
-	tokenModifiers: [],
+	tokenModifiers: ["defaultLibrary"],
 };
+
+const DEFAULT_LIBRARY = 1 << 0;
 
 // role → index into SEMANTIC_LEGEND.tokenTypes. Roles with no entry (punctuation,
 // whitespace, other) are skipped, not emitted.
@@ -37,25 +43,34 @@ const FUNCTION_TYPE = TOKEN_TYPES.indexOf("function");
 // grammar-reserved names like postgres/duckdb COALESCE lex as keywords) — the parse
 // tree can, so identifiers at these positions get the `function` token type and all
 // call sites highlight alike regardless of what the dialect's lexer reserves.
-function functionStarts(session: SqlSession): Set<string> {
-	const starts = new Set<string>();
-	for (const s of session.deriveSymbols()) if (s.kind === "function") starts.add(`${s.span.line}:${s.span.column}`);
+function functionStarts(session: SqlSession): Map<string, number> {
+	const starts = new Map<string, number>();
+	for (const s of session.deriveSymbols()) {
+		if (s.kind !== "function") continue;
+		const known = lookupSignature(session.dialect, s.name.toLowerCase()) !== undefined;
+		starts.set(`${s.span.line}:${s.span.column}`, known ? DEFAULT_LIBRARY : 0);
+	}
 	return starts;
 }
 
 // The shared per-token push loop — full and range share it so multi-line splitting
 // stays in one place. Tokens must already be in source order (doc.tokens is).
-function pushTokens(builder: SemanticTokensBuilder, tokens: readonly Token[], fnStarts?: Set<string>): void {
+function pushTokens(builder: SemanticTokensBuilder, tokens: readonly Token[], fnStarts?: Map<string, number>): void {
 	for (const token of tokens) {
 		let typeIndex = ROLE_TO_TYPE.get(token.role);
-		if (token.role === "identifier" && fnStarts?.has(`${token.line}:${token.column}`)) typeIndex = FUNCTION_TYPE;
+		let modifiers = 0;
+		const fn = token.role === "identifier" ? fnStarts?.get(`${token.line}:${token.column}`) : undefined;
+		if (fn !== undefined) {
+			typeIndex = FUNCTION_TYPE;
+			modifiers = fn;
+		}
 		if (typeIndex === undefined) continue; // punctuation/whitespace/other — not highlighted
 
 		// antlr token.line is 1-based, token.column 0-based; LSP wants 0-based line.
 		const startLine = token.line - 1;
 		const text = token.text;
 		if (!text.includes("\n")) {
-			builder.push(startLine, token.column, text.length, typeIndex, 0);
+			builder.push(startLine, token.column, text.length, typeIndex, modifiers);
 			continue;
 		}
 		// Multi-line token (e.g. a block comment spanning lines): the builder expects
@@ -67,7 +82,7 @@ function pushTokens(builder: SemanticTokensBuilder, tokens: readonly Token[], fn
 			if (length === 0) continue; // empty trailing segment after a final newline
 			const line = startLine + i;
 			const column = i === 0 ? token.column : 0;
-			builder.push(line, column, length, typeIndex, 0);
+			builder.push(line, column, length, typeIndex, modifiers);
 		}
 	}
 }
