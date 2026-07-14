@@ -1,7 +1,7 @@
 {
 	"$schema": "https://context7.com/schema/context7.json",
 	"projectTitle": "sqllens-language-server - Multi-dialect SQL Language Server (LSP)",
-	"description": "SQL language server: positioned diagnostics, typed hover, go-to-definition, completion, signature help, semantic tokens. Databricks, T-SQL, Snowflake, BigQuery, Postgres, DuckDB, Trino and more.",
+	"description": "SQL LSP / language server: positioned diagnostics, typed hover, go-to-definition, completion, signature help, semantic tokens. Databricks, T-SQL, Snowflake, BigQuery, Postgres, DuckDB, Trino.",
 	"folders": [],
 	"excludeFolders": [".github", ".claude", ".vscode", "tests", "scripts", "bin", "vscode-extension/src"],
 	"excludeFiles": ["CLAUDE.md", "CHANGELOG.md"],
