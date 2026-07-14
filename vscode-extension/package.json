@@ -2,7 +2,7 @@
 	"name": "sqllens-sql",
 	"displayName": "sqllens SQL",
 	"description": "Multi-dialect SQL language support powered by the sqllens analyzer: diagnostics, typed hover, go-to-definition, references, completion, semantic tokens. Fully self-contained — the language server is bundled.",
-	"version": "0.1.0",
+	"version": "0.3.0",
 	"publisher": "niclasolofsson",
 	"license": "MIT",
 	"repository": {
@@ -51,7 +51,7 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
-		"sqllens-language-server": "^0.1.0",
+		"sqllens-language-server": "^0.3.0",
 		"vscode-languageclient": "^9.0.1"
 	},
 	"devDependencies": {
