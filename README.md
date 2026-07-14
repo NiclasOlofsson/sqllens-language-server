@@ -25,6 +25,38 @@ sqllens-language-server --stdio
 The server speaks LSP over stdio (the `--stdio` flag is required). It is meant to be
 launched by an editor / LSP client, not used interactively from a terminal.
 
+`sqllens-language-server --help` is the one-screen map of what the binary can do:
+
+```text
+Usage: sqllens-language-server <transport>
+
+Transports (exactly one required):
+  --stdio            JSON-RPC over stdin/stdout (the common choice)
+  --node-ipc         Node child-process IPC (when forked from a Node host)
+  --socket=<port>    connect to a TCP port the client is listening on
+  --pipe=<name>      named pipe (Windows) / Unix domain socket
+
+Options:
+  --help             print this help and exit
+  --version          print the version and exit
+
+Configuration (discovered from the initialize workspace root, not passed as flags):
+  <workspace>/.sqllens.json   project layer: glob-to-dialect rules, default dialect,
+                              schema catalog, plugins
+  ~/.sqllens.json             user layer, merged under the project file
+
+Environment:
+  SQLLENS_USER_CONFIG=<path>  user-layer config location (default ~/.sqllens.json)
+  SQLLENS_NO_PLUGINS=1        disable plugin loading
+  SQLLENS_TRACE_SYNC=<file>   append per-change document-sync traces (debug aid)
+
+Features: diagnostics (push and pull), typed hover with lineage, completion,
+signature help, go to definition, references, document symbols, semantic tokens,
+code actions, folding, inlay hints, code lens, selection ranges.
+Dialects: databricks, tsql, snowflake, bigquery, redshift, postgres, duckdb,
+trino, sqlite, mysql.
+```
+
 ## Feature status
 
 The server holds one session per open file (rebuilt on edit) and serves every feature
