@@ -58,7 +58,7 @@ project-wide navigation). Where the server stands today, feature by feature:
 | Call hierarchy | ◻️ not yet — the CTE / view / model dependency graph |
 | Document link | ◻️ not yet |
 | Linked editing range | ◻️ not yet — live alias / name sync-edit |
-| Code action (quick fixes) | ◻️ next phase |
+| Code action (quick fixes) | ✅ for `.sqllens.json` (change-dialect fixes) · ◻️ SQL quick fixes next phase |
 | Rename (+ prepare) | ◻️ next phase |
 | Formatting / range / on-type | ◻️ deferred (external formatter) |
 | Inline values | ◻️ debugger surface |
@@ -85,7 +85,7 @@ project-wide navigation). Where the server stands today, feature by feature:
 | --- | --- |
 | Workspace symbols | ◻️ needs a project / multi-file model |
 | Execute command | ◻️ not yet |
-| Configuration / watched-files | ◻️ not yet (protocol config; file-based `.sqllens.json` config exists) |
+| Configuration / watched-files | ✅ `.sqllens.json` validates + reloads live while open in the editor · ◻️ OS file watch / protocol config not yet |
 | File operations (create / rename / delete) | ◻️ not yet |
 
 Legend: ✅ implemented · ◻️ not yet / deferred · — not applicable to SQL. The
@@ -126,6 +126,13 @@ Example `schema.json`:
 	"sales": { "id": "bigint", "amount": "decimal(10,2)", "region": "string" }
 }
 ```
+
+Config problems are first-class: an unknown dialect value gets an Error
+diagnostic positioned on the value in `.sqllens.json` itself, with quickfix
+code actions offering every valid dialect (closest name first). While the
+config is broken, SQL documents carry a one-line Information hint pointing at
+it — the channel that reaches consumers that never open the config file. An
+edit to the open config re-validates and re-applies dialects live, no restart.
 
 ## Attaching a client
 

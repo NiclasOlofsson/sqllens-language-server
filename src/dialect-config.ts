@@ -13,7 +13,37 @@ import { Schema, resolveDialect, type Dialect, type SchemaMapping } from "sqllen
 // used by the semantic-diagnostics and hover tiers. A missing/malformed config
 // falls back to the "databricks" default and records a warning (surfaced over
 // window/logMessage by the server) — loading never throws.
+//
+// Config problems additionally surface as ConfigIssues: positioned (raw-text
+// offsets) so the server can publish real diagnostics ON the config file and
+// serve quickfix code actions (unknown dialect → replace with a valid one).
+// A missing config file is NOT an issue — zero-config is a supported state.
 // ---------------------------------------------------------------------------
+
+/** The primary dialect names offered as quickfixes (the `Dialect` union at runtime). */
+export const PRIMARY_DIALECTS: readonly Dialect[] = [
+	"databricks",
+	"tsql",
+	"snowflake",
+	"bigquery",
+	"redshift",
+	"postgres",
+	"duckdb",
+	"trino",
+	"sqlite",
+	"mysql",
+];
+
+/** A positioned, machine-actionable config problem (offsets into the config raw text). */
+export interface ConfigIssue {
+	message: string;
+	/** Raw-text offset span of the offending value (including quotes); 0/0 when not locatable. */
+	start: number;
+	end: number;
+	/** "unknown-dialect" issues carry the bad value and are quickfixable. */
+	kind: "unknown-dialect" | "other";
+	badValue?: string;
+}
 
 interface Rule {
 	files: string;
@@ -27,19 +57,38 @@ export interface DialectConfig {
 	schema?: Schema;
 	/** Non-fatal problems (missing/malformed config, unknown dialect, bad schema) for logMessage. */
 	warnings: string[];
+	/** Positioned problems for diagnostics on the config file itself (missing file excluded). */
+	issues: ConfigIssue[];
+	/** The config raw text the issues' offsets refer to (undefined when no config exists). */
+	raw?: string;
 }
 
-export function loadDialectConfig(rootDir: string): DialectConfig {
+/** Locate the span of the quoted `value` in `raw`, searching from `from`; 0/0 when absent. */
+function spanOf(raw: string, value: string, from = 0): { start: number; end: number } {
+	const needle = `"${value}"`;
+	const idx = raw.indexOf(needle, from);
+	return idx === -1 ? { start: 0, end: 0 } : { start: idx, end: idx + needle.length };
+}
+
+/**
+ * Load `<root>/.sqllens.json`. Never throws. `configText` overrides the on-disk
+ * content (the server passes the open editor buffer so validation is live);
+ * the `schema` file is always read from disk.
+ */
+export function loadDialectConfig(rootDir: string, configText?: string): DialectConfig {
 	const warnings: string[] = [];
-	let rules: Rule[] = [];
+	const issues: ConfigIssue[] = [];
+	const rules: Rule[] = [];
 	let fallback: Dialect = "databricks";
 	let schema: Schema | undefined;
 
-	let raw: string | undefined;
-	try {
-		raw = readFileSync(join(rootDir, ".sqllens.json"), "utf8");
-	} catch {
-		warnings.push("No .sqllens.json found; defaulting all files to the databricks dialect.");
+	let raw: string | undefined = configText;
+	if (raw === undefined) {
+		try {
+			raw = readFileSync(join(rootDir, ".sqllens.json"), "utf8");
+		} catch {
+			warnings.push("No .sqllens.json found; defaulting all files to the databricks dialect.");
+		}
 	}
 
 	if (raw !== undefined) {
@@ -49,12 +98,21 @@ export function loadDialectConfig(rootDir: string): DialectConfig {
 				default?: string;
 				schema?: string;
 			};
+			let searchFrom = 0;
 			for (const r of parsed.dialects ?? []) {
 				const dialect = resolveDialect(r.dialect);
 				if (dialect === undefined) {
+					const span = spanOf(raw, r.dialect, searchFrom);
+					searchFrom = span.end;
 					warnings.push(
 						`Unknown dialect "${r.dialect}" in .sqllens.json rule for "${r.files}"; rule ignored.`,
 					);
+					issues.push({
+						message: `Unknown dialect "${r.dialect}" (rule for "${r.files}" is ignored).`,
+						...span,
+						kind: "unknown-dialect",
+						badValue: r.dialect,
+					});
 					continue;
 				}
 				rules.push({ files: r.files, dialect });
@@ -62,7 +120,15 @@ export function loadDialectConfig(rootDir: string): DialectConfig {
 			if (parsed.default !== undefined) {
 				const dialect = resolveDialect(parsed.default);
 				if (dialect !== undefined) fallback = dialect;
-				else warnings.push(`Unknown default dialect "${parsed.default}" in .sqllens.json; using databricks.`);
+				else {
+					warnings.push(`Unknown default dialect "${parsed.default}" in .sqllens.json; using databricks.`);
+					issues.push({
+						message: `Unknown default dialect "${parsed.default}"; falling back to databricks.`,
+						...spanOf(raw, parsed.default, raw.indexOf('"default"')),
+						kind: "unknown-dialect",
+						badValue: parsed.default,
+					});
+				}
 			}
 			if (parsed.schema !== undefined) {
 				try {
@@ -70,10 +136,21 @@ export function loadDialectConfig(rootDir: string): DialectConfig {
 					schema = new Schema(mapping);
 				} catch {
 					warnings.push(`Could not read schema file "${parsed.schema}" referenced by .sqllens.json.`);
+					issues.push({
+						message: `Could not read schema file "${parsed.schema}".`,
+						...spanOf(raw, parsed.schema, raw.indexOf('"schema"')),
+						kind: "other",
+					});
 				}
 			}
 		} catch {
 			warnings.push(".sqllens.json is not valid JSON; defaulting all files to the databricks dialect.");
+			issues.push({
+				message: ".sqllens.json is not valid JSON; all files fall back to the databricks dialect.",
+				start: 0,
+				end: 0,
+				kind: "other",
+			});
 		}
 	}
 
@@ -83,5 +160,22 @@ export function loadDialectConfig(rootDir: string): DialectConfig {
 		return fallback;
 	};
 
-	return { dialectFor, schema, warnings };
+	return { dialectFor, schema, warnings, issues, raw };
+}
+
+/** Levenshtein distance — ranks quickfix dialect candidates by closeness to the bad value. */
+export function editDistance(a: string, b: string): number {
+	const m = a.length;
+	const n = b.length;
+	const row = Array.from({ length: n + 1 }, (_, j) => j);
+	for (let i = 1; i <= m; i++) {
+		let prev = row[0];
+		row[0] = i;
+		for (let j = 1; j <= n; j++) {
+			const tmp = row[j];
+			row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+			prev = tmp;
+		}
+	}
+	return row[n];
 }

@@ -1,17 +1,22 @@
 // src/server.ts
 import {
+	type CodeAction,
+	CodeActionKind,
 	type Connection,
+	type Diagnostic,
+	DiagnosticSeverity,
 	type InitializeParams,
 	type InitializeResult,
+	type Range,
 	TextDocuments,
 	TextDocumentSyncKind,
 } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { fileURLToPath } from "node:url";
-import { relative } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { join, relative } from "node:path";
 import { appendFileSync } from "node:fs";
 import { SqlSession, type SchemaProvider } from "sqllens";
-import { loadDialectConfig, type DialectConfig } from "./dialect-config.js";
+import { editDistance, loadDialectConfig, PRIMARY_DIALECTS, type DialectConfig } from "./dialect-config.js";
 import { computeDiagnostics } from "./features/diagnostics.js";
 import { computeDocumentDiagnostics } from "./features/pull-diagnostics.js";
 import { computeHover } from "./features/hover.js";
@@ -126,6 +131,75 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 		}
 	};
 
+	// ------------------------------------------------------------------
+	// Config-file surface: .sqllens.json gets its own diagnostics (positioned
+	// on the offending values), quickfix code actions (unknown dialect →
+	// replace with a valid one), and live revalidation + re-apply when edited
+	// in the editor. It is NEVER routed through the SQL pipeline.
+	// ------------------------------------------------------------------
+	const isConfigUri = (uri: string): boolean => uri.replace(/\\/g, "/").endsWith("/.sqllens.json");
+	const configUri = (): string => pathToFileURL(join(rootDir, ".sqllens.json")).toString();
+
+	const positionAt = (text: string, offset: number): { line: number; character: number } => {
+		let line = 0;
+		let lineStart = 0;
+		for (let i = 0; i < offset && i < text.length; i++) {
+			if (text[i] === "\n") {
+				line++;
+				lineStart = i + 1;
+			}
+		}
+		return { line, character: offset - lineStart };
+	};
+
+	/** The config issues as LSP diagnostics against the CURRENT config text. */
+	const configDiagnostics = (): { diagnostic: Diagnostic; badValue?: string }[] => {
+		const text = config.raw ?? "";
+		return config.issues.map((issue) => {
+			const range: Range = { start: positionAt(text, issue.start), end: positionAt(text, issue.end) };
+			return {
+				diagnostic: {
+					range,
+					severity: DiagnosticSeverity.Error,
+					source: "sqllens",
+					message: issue.message,
+				},
+				badValue: issue.kind === "unknown-dialect" ? issue.badValue : undefined,
+			};
+		});
+	};
+
+	const publishConfigDiagnostics = (): void => {
+		connection.sendDiagnostics({ uri: configUri(), diagnostics: configDiagnostics().map((d) => d.diagnostic) });
+	};
+
+	/** A one-line, edit-surviving hint attached to SQL documents while the config is broken —
+	 *  the channel that reaches consumers that never look at .sqllens.json (Claude Code's
+	 *  post-edit diagnostics injection reads SQL-file diagnostics, not config-file ones). */
+	const configHint = (): Diagnostic[] => {
+		if (config.issues.length === 0) return [];
+		const zero = { line: 0, character: 0 };
+		return [
+			{
+				range: { start: zero, end: zero },
+				severity: DiagnosticSeverity.Information,
+				source: "sqllens",
+				message: `Dialect config problem in .sqllens.json: ${config.issues[0].message} Fix .sqllens.json at the workspace root.`,
+			},
+		];
+	};
+
+	/** Reload config (from `text` when the config file is open in the editor, else from disk),
+	 *  republish its diagnostics, drop all cached sessions (dialect/schema may have changed),
+	 *  and re-analyze every open SQL document. */
+	const reloadConfig = (text?: string): void => {
+		config = loadDialectConfig(rootDir, text);
+		for (const w of config.warnings) connection.console.info(w);
+		publishConfigDiagnostics();
+		sessions.clear();
+		for (const doc of documents.all()) if (!isConfigUri(doc.uri)) publish(doc.uri);
+	};
+
 	// Build (or rebuild) the SqlSession for `uri` from the TextDocuments registry's current
 	// text, resolving the dialect via config, and cache it. Returns undefined only when the
 	// registry has no such open document. On an edit we carry the previous session's underlying
@@ -134,6 +208,7 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 	// one statement recomputes only that statement. A fresh open (or a dialect change) starts clean,
 	// with the active schema baked into the session for its whole lifetime.
 	const rebuild = (uri: string): SqlSession | undefined => {
+		if (isConfigUri(uri)) return undefined; // the config file never enters the SQL pipeline
 		const td = documents.get(uri);
 		if (!td) return undefined;
 		const dialect = config.dialectFor(uriToRel(uri));
@@ -182,16 +257,21 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 				semanticTokensProvider: { legend: SEMANTIC_LEGEND, range: true, full: { delta: true } },
 				completionProvider: { triggerCharacters: [".", " "], resolveProvider: true },
 				signatureHelpProvider: { triggerCharacters: ["(", ","] },
+				codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix] },
 				diagnosticProvider: { interFileDependencies: false, workspaceDiagnostics: false },
 			},
 		};
 	});
 
+	// Initial config state (e.g. a broken config already on disk) is published as soon
+	// as the client is ready — diagnostics on a file need no didOpen to be shown.
+	connection.onInitialized(() => publishConfigDiagnostics());
+
 	const publish = (uri: string): void => {
 		const session = rebuild(uri);
 		if (!session) return;
 		const schema = activeSchema();
-		const diagnostics = computeDiagnostics(session, schema);
+		const diagnostics = [...configHint(), ...computeDiagnostics(session, schema)];
 		connection.sendDiagnostics({ uri, diagnostics });
 
 		// Lazy catalog: computeDiagnostics just resolved against `schema`; a resolve-on-demand catalog
@@ -222,18 +302,62 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 		}
 	};
 
-	documents.onDidOpen((e) => publish(e.document.uri));
-	documents.onDidChangeContent((e) => publish(e.document.uri));
+	documents.onDidOpen((e) =>
+		isConfigUri(e.document.uri) ? reloadConfig(e.document.getText()) : publish(e.document.uri),
+	);
+	documents.onDidChangeContent((e) =>
+		isConfigUri(e.document.uri) ? reloadConfig(e.document.getText()) : publish(e.document.uri),
+	);
 	documents.onDidClose((e) => {
+		if (isConfigUri(e.document.uri)) {
+			reloadConfig(); // back to the on-disk content (an unsaved buffer edit dies with the editor)
+			return;
+		}
 		sessions.delete(e.document.uri);
 		forgetSemanticTokens(e.document.uri);
+	});
+
+	// Quickfixes on the config file: every unknown-dialect diagnostic intersecting the
+	// requested range gets one action per valid dialect, closest name first (preferred).
+	connection.onCodeAction((params) => {
+		if (!isConfigUri(params.textDocument.uri)) return [];
+		const overlaps = (a: Range, b: Range): boolean => {
+			const before = (p: { line: number; character: number }, q: { line: number; character: number }) =>
+				p.line < q.line || (p.line === q.line && p.character <= q.character);
+			return before(a.start, b.end) && before(b.start, a.end);
+		};
+		const actions: CodeAction[] = [];
+		for (const { diagnostic, badValue } of configDiagnostics()) {
+			if (badValue === undefined || !overlaps(diagnostic.range, params.range)) continue;
+			const ranked = [...PRIMARY_DIALECTS].sort(
+				(a, b) => editDistance(badValue.toLowerCase(), a) - editDistance(badValue.toLowerCase(), b),
+			);
+			ranked.forEach((dialect, i) =>
+				actions.push({
+					title: `Change dialect to "${dialect}"`,
+					kind: CodeActionKind.QuickFix,
+					diagnostics: [diagnostic],
+					isPreferred: i === 0,
+					edit: {
+						changes: {
+							[params.textDocument.uri]: [{ range: diagnostic.range, newText: `"${dialect}"` }],
+						},
+					},
+				}),
+			);
+		}
+		return actions;
 	});
 
 	// Pull diagnostics (textDocument/diagnostic): same items as the push path, on demand.
 	// Push (above) and pull coexist; the client picks whichever it supports.
 	connection.languages.diagnostics.on((params) => {
+		if (isConfigUri(params.textDocument.uri))
+			return { kind: "full" as const, items: configDiagnostics().map((d) => d.diagnostic) };
 		const session = sessionFor(params.textDocument.uri);
-		return session ? computeDocumentDiagnostics(session, activeSchema()) : { kind: "full", items: [] };
+		if (!session) return { kind: "full" as const, items: [] };
+		const report = computeDocumentDiagnostics(session, activeSchema());
+		return report.kind === "full" ? { ...report, items: [...configHint(), ...report.items] } : report;
 	});
 
 	connection.onHover((params) => {
