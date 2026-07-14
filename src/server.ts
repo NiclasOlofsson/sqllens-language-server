@@ -118,6 +118,13 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 	let rootDir = process.cwd();
 	let config: DialectConfig = loadDialectConfig(rootDir);
 	let themeIcons = false;
+	// Push/pull channel selection. A client that declares textDocument.diagnostic
+	// support (VS Code) PULLS for open documents — and still applies pushes into a
+	// separate collection, so pushing too shows every SQL diagnostic twice. When the
+	// client pulls, SQL diagnostics travel pull-only (a refresh request replaces the
+	// lazy-catalog re-publish); push remains for non-pulling clients and, always, for
+	// the config file (pull never covers a closed document).
+	let clientPullsDiagnostics = false;
 
 	// The catalog every feature resolves against: an injected host SchemaProvider wins over the
 	// file-configured `.sqllens.json` schema (the embedding slot supplements, never fights, the file
@@ -199,6 +206,8 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 		publishConfigDiagnostics();
 		sessions.clear();
 		for (const doc of documents.all()) if (!isConfigUri(doc.uri)) publish(doc.uri);
+		// Pull-capable clients re-fetch SQL diagnostics themselves after a config change.
+		if (clientPullsDiagnostics) void connection.languages.diagnostics.refresh();
 	};
 
 	// Build (or rebuild) the SqlSession for `uri` from the TextDocuments registry's current
@@ -230,6 +239,7 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 		// (our VS Code extension, whose middleware renders them) gets them; everyone
 		// else gets plain markdown.
 		themeIcons = (params.initializationOptions as { themeIcons?: boolean } | undefined)?.themeIcons === true;
+		clientPullsDiagnostics = params.capabilities.textDocument?.diagnostic !== undefined;
 		if (params.rootUri) {
 			try {
 				rootDir = fileURLToPath(params.rootUri);
@@ -276,8 +286,11 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 		const session = rebuild(uri);
 		if (!session) return;
 		const schema = activeSchema();
+		// Pull-capable clients own SQL diagnostics via textDocument/diagnostic — pushing
+		// too would display every item twice (VS Code renders both channels). We still
+		// run the analysis here so the lazy-catalog miss/prime loop below stays live.
 		const diagnostics = [...configHint(), ...computeDiagnostics(session, schema)];
-		connection.sendDiagnostics({ uri, diagnostics });
+		if (!clientPullsDiagnostics) connection.sendDiagnostics({ uri, diagnostics });
 
 		// Lazy catalog: computeDiagnostics just resolved against `schema`; a resolve-on-demand catalog
 		// (CallbackSchema for physical tables, CallbackTemplateCatalog for templated refs) records what it
@@ -302,7 +315,10 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 			// double-fetch.
 			const version = documents.get(uri)?.version;
 			void schema.prime().then((changed) => {
-				if (changed && documents.get(uri)?.version === version) publish(uri);
+				if (!changed || documents.get(uri)?.version !== version) return;
+				// Pull mode: ask the client to re-pull instead of pushing the refresh.
+				if (clientPullsDiagnostics) void connection.languages.diagnostics.refresh();
+				else publish(uri);
 			});
 		}
 	};
@@ -366,8 +382,9 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 		return actions;
 	});
 
-	// Pull diagnostics (textDocument/diagnostic): same items as the push path, on demand.
-	// Push (above) and pull coexist; the client picks whichever it supports.
+	// Pull diagnostics (textDocument/diagnostic): same items as the push path computes.
+	// Channel selection is exclusive per client (see clientPullsDiagnostics): pull-capable
+	// clients get SQL diagnostics ONLY here; others ONLY via push.
 	connection.languages.diagnostics.on((params) => {
 		// Config diagnostics travel ONLY on the push channel: push works for a closed
 		// file (Problems shows the broken config before it's ever opened) and pushes
