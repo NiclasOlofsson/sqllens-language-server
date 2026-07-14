@@ -1,6 +1,6 @@
 import { SemanticTokensBuilder } from "vscode-languageserver";
 import type { Range, SemanticTokens, SemanticTokensDelta, SemanticTokensLegend } from "vscode-languageserver-types";
-import type { SqlSession, Token, TokenRole } from "sqllens";
+import { type SqlSession, type Token, type TokenRole } from "sqllens";
 
 // ---------------------------------------------------------------------------
 // Semantic tokens: semantic highlighting from the token artifact. Pure
@@ -12,7 +12,7 @@ import type { SqlSession, Token, TokenRole } from "sqllens";
 // ---------------------------------------------------------------------------
 
 // The standard LSP token types our roles map to. tokenModifiers stays empty.
-const TOKEN_TYPES = ["keyword", "string", "number", "comment", "operator", "variable"] as const;
+const TOKEN_TYPES = ["keyword", "string", "number", "comment", "operator", "variable", "function"] as const;
 
 export const SEMANTIC_LEGEND: SemanticTokensLegend = {
 	tokenTypes: [...TOKEN_TYPES],
@@ -30,11 +30,25 @@ const ROLE_TO_TYPE = new Map<TokenRole, number>([
 	["identifier", TOKEN_TYPES.indexOf("variable")],
 ]);
 
+const FUNCTION_TYPE = TOKEN_TYPES.indexOf("function");
+
+// Call-site name spans from the symbols pass (kind "function"), keyed line:column.
+// The lexer can't know `round` is a function (it's a plain identifier token; only
+// grammar-reserved names like postgres/duckdb COALESCE lex as keywords) — the parse
+// tree can, so identifiers at these positions get the `function` token type and all
+// call sites highlight alike regardless of what the dialect's lexer reserves.
+function functionStarts(session: SqlSession): Set<string> {
+	const starts = new Set<string>();
+	for (const s of session.deriveSymbols()) if (s.kind === "function") starts.add(`${s.span.line}:${s.span.column}`);
+	return starts;
+}
+
 // The shared per-token push loop — full and range share it so multi-line splitting
 // stays in one place. Tokens must already be in source order (doc.tokens is).
-function pushTokens(builder: SemanticTokensBuilder, tokens: readonly Token[]): void {
+function pushTokens(builder: SemanticTokensBuilder, tokens: readonly Token[], fnStarts?: Set<string>): void {
 	for (const token of tokens) {
-		const typeIndex = ROLE_TO_TYPE.get(token.role);
+		let typeIndex = ROLE_TO_TYPE.get(token.role);
+		if (token.role === "identifier" && fnStarts?.has(`${token.line}:${token.column}`)) typeIndex = FUNCTION_TYPE;
 		if (typeIndex === undefined) continue; // punctuation/whitespace/other — not highlighted
 
 		// antlr token.line is 1-based, token.column 0-based; LSP wants 0-based line.
@@ -65,7 +79,7 @@ const fullBuilders = new Map<string, SemanticTokensBuilder>();
 
 export function computeSemanticTokens(session: SqlSession, uri?: string): SemanticTokens {
 	const builder = new SemanticTokensBuilder();
-	pushTokens(builder, session.tokens);
+	pushTokens(builder, session.tokens, functionStarts(session));
 	const result = builder.build();
 	if (uri !== undefined) fullBuilders.set(uri, builder);
 	return result;
@@ -78,7 +92,7 @@ export function computeSemanticTokensRange(session: SqlSession, range: Range): S
 	const endOff = session.doc.lines.offsetAt(range.end.line, range.end.character);
 	const inRange = session.tokens.filter((t) => t.start <= endOff && t.stop >= startOff);
 	const builder = new SemanticTokensBuilder();
-	pushTokens(builder, inRange);
+	pushTokens(builder, inRange, functionStarts(session));
 	return builder.build();
 }
 
@@ -99,7 +113,7 @@ export function computeSemanticTokensDelta(
 	// Reuse the retained builder: previousResult() captures the prior data (since the id
 	// matches) and re-initializes it with a NEW id, then we re-push and diff.
 	prev.previousResult(previousResultId);
-	pushTokens(prev, session.tokens);
+	pushTokens(prev, session.tokens, functionStarts(session));
 	const result = prev.buildEdits();
 	fullBuilders.set(uri, prev); // keep it for the next delta (its id changed after previousResult)
 	return result;
