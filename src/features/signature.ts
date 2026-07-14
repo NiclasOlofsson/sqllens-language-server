@@ -5,9 +5,11 @@ import { type SqlSession } from "sqllens";
 // Signature help: the interactive editor feature that shows parameter hints
 // while typing inside a call's parentheses. It maps the cached document's caret
 // offset to the session's `signatureAt()` result and turns it into an LSP
-// SignatureHelp (one signature, the active parameter highlighted). Pure
-// translation: position in, SignatureHelp out. signatureAt() never throws and
-// returns null when the caret isn't inside a call, so neither does this.
+// SignatureHelp. Since sqllens 1.2 the info carries the full OVERLOAD SET of
+// the called name (harvested/authored order) plus the active indexes — the
+// shape maps one to one onto LSP. Pure translation: position in, SignatureHelp
+// out. signatureAt() never throws and returns null when the caret isn't inside
+// a call, so neither does this.
 // ---------------------------------------------------------------------------
 
 export function computeSignatureHelp(session: SqlSession, position: Position): SignatureHelp | null {
@@ -15,13 +17,11 @@ export function computeSignatureHelp(session: SqlSession, position: Position): S
 	const info = session.signatureAt(off);
 	if (!info) return null;
 	return {
-		signatures: [
-			{
-				label: info.label,
-				parameters: info.parameters.map((p) => ({ label: p.label })),
-			},
-		],
-		activeSignature: 0,
+		signatures: info.signatures.map((s) => ({
+			label: s.label,
+			parameters: s.parameters.map((p) => ({ label: p.label })),
+		})),
+		activeSignature: info.activeSignature,
 		activeParameter: info.activeParameter,
 	};
 }

@@ -498,10 +498,11 @@ describe("LSP acceptance", () => {
 
 		const resolved = (await client.sendRequest(CompletionResolveRequest.type, fnItem)) as any;
 		expect(resolved.detail).toBeDefined();
-		// The rendered signature names the function and its parameters.
-		expect(resolved.detail).toContain("date_add");
-		expect(resolved.detail).toContain("(");
-		expect(resolved.detail).toContain("start_date");
+		// The rendered first overload: the name plus a non-empty parameter list. Parameter NAMES
+		// are vendor-doc data (sqllens's harvested tables) and not pinned here.
+		expect(resolved.detail).toMatch(/^date_add\(.+\)$/);
+		// The documentation fence carries the overload set (one rendered signature per line).
+		expect(resolved.documentation?.value).toContain("date_add(");
 	});
 
 	it("completionItem/resolve leaves a non-function item unchanged", async () => {
@@ -533,6 +534,37 @@ describe("LSP acceptance", () => {
 		const h = help as any;
 		expect(h.activeParameter).toBe(1);
 		expect(h.signatures[0].label).toContain("date_add");
+	});
+
+	it("signature help carries the full overload set (sqllens 1.2 harvested tables)", async () => {
+		// databricks date_add has two documented shapes; the editor gets BOTH signatures
+		// plus the active index, not a single flattened one.
+		const text = "SELECT date_add(x, ";
+		const uri = open("sig-overloads.sql", text);
+		const help = (await client.sendRequest(SignatureHelpRequest.type, {
+			textDocument: { uri },
+			position: { line: 0, character: text.length },
+		})) as any;
+		expect(help.signatures.length).toBeGreaterThanOrEqual(2);
+		for (const s of help.signatures) expect(s.label).toContain("date_add");
+		expect(help.activeSignature).toBeGreaterThanOrEqual(0);
+		expect(help.activeSignature).toBeLessThan(help.signatures.length);
+	});
+
+	it("completionItem/resolve documentation lists every overload, one per line", async () => {
+		const text = "SELECT  FROM sales";
+		const uri = open("complete-fn-overloads.sql", text);
+		const items = await client.sendRequest(CompletionRequest.type, {
+			textDocument: { uri },
+			position: { line: 0, character: "SELECT ".length },
+		});
+		const list = Array.isArray(items) ? items : ((items as any)?.items ?? []);
+		const fnItem = (list as any[]).find((c) => c.label === "date_add");
+		const resolved = (await client.sendRequest(CompletionResolveRequest.type, fnItem)) as any;
+		const fenceLines = (resolved.documentation.value as string)
+			.split("\n")
+			.filter((l) => l.startsWith("date_add("));
+		expect(fenceLines.length).toBeGreaterThanOrEqual(2);
 	});
 
 	it("references returns every occurrence of a CTE-projected column", async () => {

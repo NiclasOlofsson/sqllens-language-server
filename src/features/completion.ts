@@ -17,6 +17,8 @@ const KIND: Record<Completion["kind"], CompletionItemKind> = {
 	column: CompletionItemKind.Field,
 	table: CompletionItemKind.Class,
 	function: CompletionItemKind.Function,
+	// Templated candidates (ref()/source()-style, sqllens 1.2): rendered text, not a plain symbol.
+	template: CompletionItemKind.Snippet,
 };
 
 export function computeCompletion(session: SqlSession, position: Position): CompletionItem[] {

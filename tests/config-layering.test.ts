@@ -115,7 +115,7 @@ describe("config layering", () => {
 			"home/catalog.json": JSON.stringify({ sales: { amount: "decimal" } }),
 		});
 		const config = loadDialectConfig(ws.root, undefined, ws.user);
-		expect(config.schema?.columnsFor(["sales"])).toBeDefined();
+		expect(config.schema?.columnsFor(["sales"], "databricks")).toBeDefined();
 		ws.done();
 	});
 });
