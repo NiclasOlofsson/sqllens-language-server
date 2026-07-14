@@ -2,12 +2,12 @@
 // The server ships inside this extension as an npm dependency and runs as a forked
 // module in VS Code's own Node — no PATH lookup, no separate install.
 import * as path from "node:path";
-import type { ExtensionContext } from "vscode";
+import * as vscode from "vscode";
 import { LanguageClient, TransportKind } from "vscode-languageclient/node";
 
 let client: LanguageClient | undefined;
 
-export async function activate(_context: ExtensionContext): Promise<void> {
+export async function activate(_context: vscode.ExtensionContext): Promise<void> {
 	// The package exports only its root entry (dist/index.js); resolve the sibling
 	// main.js (the connection entry) from it rather than a subpath import.
 	const serverModule = path.join(path.dirname(require.resolve("sqllens-language-server")), "main.js");
@@ -25,6 +25,20 @@ export async function activate(_context: ExtensionContext): Promise<void> {
 				// squiggles bad values, and serves the change-dialect quickfixes.
 				{ pattern: "**/.sqllens.json" },
 			],
+			// Tell the server it may emit $(codicon) theme icons in hover markdown …
+			initializationOptions: { themeIcons: true },
+			middleware: {
+				// … and re-wrap the returned markdown with icon support enabled, which
+				// plain LSP-converted MarkdownStrings don't carry.
+				provideHover: async (document, position, token, next) => {
+					const hover = await next(document, position, token);
+					if (!hover) return hover;
+					hover.contents = hover.contents.map((c) =>
+						c instanceof vscode.MarkdownString ? new vscode.MarkdownString(c.value, true) : c,
+					);
+					return hover;
+				},
+			},
 		},
 	);
 	await client.start();

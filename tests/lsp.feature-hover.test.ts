@@ -23,11 +23,38 @@ describe("computeHover", () => {
 		expect(computeHover(session(sql), { line: 0, character: sql.indexOf("FROM") })).toBeNull();
 	});
 
+	it("table hover is a card with the catalog column list", () => {
+		const sql = "SELECT amount FROM sales";
+		const schema = new Schema({ sales: { id: "bigint", amount: "decimal" } });
+		const h = computeHover(session(sql, schema), { line: 0, character: sql.indexOf("sales") }, { schema });
+		const v = (h!.contents as { value: string }).value;
+		expect(v).toContain("`sales`");
+		expect(v).toContain("— table");
+		expect(v).toContain("**Columns**");
+		expect(v).toContain("`id` · bigint");
+		expect(v).toContain("`amount` · decimal");
+		expect(v).not.toContain("$("); // icons are opt-in; default is plain markdown
+	});
+
+	it("alias hover resolves its target and lists the target's columns", () => {
+		const sql = "SELECT s.amount FROM sales AS s";
+		const schema = new Schema({ sales: { amount: "decimal" } });
+		const h = computeHover(session(sql, schema), { line: 0, character: sql.lastIndexOf("s") }, { schema });
+		const v = (h!.contents as { value: string }).value;
+		expect(v).toContain("alias for `sales`");
+		expect(v).toContain("`amount` · decimal");
+	});
+
 	it("falls back to symbol kind + name when no type is inferable (no schema)", () => {
 		const sql = "WITH c AS (SELECT 1 AS x) SELECT x FROM c";
 		const s = SqlSession.create(sql, "databricks");
 		const h = computeHover(s, { line: 0, character: sql.indexOf("FROM c") + 5 });
 		expect(h).not.toBeNull();
-		expect((h!.contents as { value: string }).value).toContain("(cte) c");
+		const v = (h!.contents as { value: string }).value;
+		expect(v).toContain("`c`");
+		expect(v).toContain("— CTE");
+		// the CTE card lists its derived output columns
+		expect(v).toContain("**Columns**");
+		expect(v).toContain("`x`");
 	});
 });

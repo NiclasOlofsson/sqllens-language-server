@@ -117,6 +117,7 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 	const sessions = new Map<string, SqlSession>();
 	let rootDir = process.cwd();
 	let config: DialectConfig = loadDialectConfig(rootDir);
+	let themeIcons = false;
 
 	// The catalog every feature resolves against: an injected host SchemaProvider wins over the
 	// file-configured `.sqllens.json` schema (the embedding slot supplements, never fights, the file
@@ -225,6 +226,10 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 	const sessionFor = (uri: string): SqlSession | undefined => sessions.get(uri) ?? rebuild(uri);
 
 	connection.onInitialize((params: InitializeParams): InitializeResult => {
+		// $(codicon) icons in hover markdown are opt-in: only a client that declares it
+		// (our VS Code extension, whose middleware renders them) gets them; everyone
+		// else gets plain markdown.
+		themeIcons = (params.initializationOptions as { themeIcons?: boolean } | undefined)?.themeIcons === true;
 		if (params.rootUri) {
 			try {
 				rootDir = fileURLToPath(params.rootUri);
@@ -375,7 +380,7 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 	connection.onHover((params) => {
 		const session = sessionFor(params.textDocument.uri);
 		if (!session) return null;
-		return computeHover(session, params.position);
+		return computeHover(session, params.position, { schema: activeSchema(), icons: themeIcons });
 	});
 
 	connection.onDefinition((params) => {
