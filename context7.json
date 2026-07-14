@@ -1,0 +1,15 @@
+{
+	"$schema": "https://context7.com/schema/context7.json",
+	"projectTitle": "sqllens-language-server - Multi-dialect SQL Language Server (LSP)",
+	"description": "SQL language server: positioned diagnostics, typed hover, go-to-definition, completion, signature help, semantic tokens. Databricks, T-SQL, Snowflake, BigQuery, Postgres, DuckDB, Trino and more.",
+	"folders": [],
+	"excludeFolders": [".github", ".claude", ".vscode", "tests", "scripts", "bin", "vscode-extension/src"],
+	"excludeFiles": ["CLAUDE.md", "CHANGELOG.md"],
+	"rules": [
+		"The server requires an explicit transport flag on every launch: sqllens-language-server --stdio",
+		"Dialect is configured, never guessed: .sqllens.json at the workspace root maps file globs to dialects with a default; without it every file falls back to the databricks dialect",
+		"The schema catalog ({ \"table\": { \"column\": \"type\" } }, referenced from .sqllens.json) enables unknown-column diagnostics, typed hover and schema-aware completion; without it only the syntax tiers run — that silence is by design, not a bug",
+		"In VS Code install the sqllens-sql extension (server bundled); in Claude Code install the sqllens-lsp plugin AND npm install -g sqllens-language-server (the plugin does not bundle the server)",
+		"For programmatic SQL analysis use the sqllens library directly; this package is the LSP protocol adapter over it"
+	]
+}

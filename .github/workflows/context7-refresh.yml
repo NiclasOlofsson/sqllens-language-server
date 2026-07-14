@@ -1,0 +1,35 @@
+name: Refresh Context7 Docs
+
+on:
+  workflow_run: # after a release, so the index tracks shipped states (owners get 10 refreshes/day)
+    workflows: [Release]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch: # manual: re-index without a release
+
+permissions: {} # curl-only job; no repo token needed
+
+jobs:
+  refresh:
+    # workflow_run fires on failure too — refresh only when the release succeeded
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      # Context7 auto-refresh is popularity-gated, so a low-traffic library
+      # goes stale; this pings their refresh API after every successful release.
+      # libraryName is the Context7 ID (lowercase), not github.repository.
+      # An HTTP error fails the job (a silent non-refresh is worse than red) —
+      # except 429: owners get 10 refreshes/day, so hitting the cap on a busy
+      # push day is expected and the next day's first push catches up.
+      - name: Trigger Context7 refresh
+        run: |
+          http=$(curl -sS -o response.json -w "%{http_code}" -X POST https://context7.com/api/v1/refresh \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.CONTEXT7_API_KEY }}" \
+            -d '{"libraryName": "/niclasolofsson/sqllens-language-server"}')
+          cat response.json; echo
+          if [ "$http" = "429" ]; then
+            echo "::notice::Context7 daily refresh limit reached — skipped; next refresh catches up"
+            exit 0
+          fi
+          [ "$http" -ge 200 ] && [ "$http" -lt 300 ]
