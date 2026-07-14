@@ -17,9 +17,10 @@ import { join, relative } from "node:path";
 import { appendFileSync } from "node:fs";
 import { SqlSession, type SchemaProvider } from "sqllens";
 import { editDistance, loadDialectConfig, PRIMARY_DIALECTS, type DialectConfig } from "./dialect-config.js";
+import { PluginHost, composeSchemas } from "./plugins.js";
 import { computeDiagnostics } from "./features/diagnostics.js";
 import { computeDocumentDiagnostics } from "./features/pull-diagnostics.js";
-import { computeHover } from "./features/hover.js";
+import { computeHoverModel, renderHoverModel } from "./features/hover.js";
 import { computeDocumentSymbols } from "./features/symbols.js";
 import { computeDefinition } from "./features/definition.js";
 import {
@@ -82,6 +83,10 @@ export interface ServerOptions {
 	 *  A CallbackSchema or CallbackTemplateCatalog here enables the lazy-catalog re-publish loop (fetch
 	 *  on miss, re-publish when the resolver warms). */
 	schema?: SchemaProvider;
+	/** Override for the user-layer config file (default: $SQLLENS_USER_CONFIG, else ~/.sqllens.json).
+	 *  The test harness points this into its temp workspace so a developer's real user config never
+	 *  leaks into the suite; embedding hosts may redirect it likewise. */
+	userConfigPath?: string;
 }
 
 export function startServer(connection: Connection, options: ServerOptions = {}): void {
@@ -116,8 +121,17 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 	// One SqlSession per open file, keyed by URI; rebuilt on open/change.
 	const sessions = new Map<string, SqlSession>();
 	let rootDir = process.cwd();
-	let config: DialectConfig = loadDialectConfig(rootDir);
+	let config: DialectConfig = loadDialectConfig(rootDir, undefined, options.userConfigPath);
 	let themeIcons = false;
+	// Plugins declared in the config layers (see src/plugin.ts for the authoring contract).
+	// Loaded during initialize (so features see them deterministically) and reloaded when a
+	// config edit changes the plugin specs. All failures degrade to "plugin absent", logged.
+	const pluginHost = new PluginHost({
+		info: (m) => connection.console.info(m),
+		warn: (m) => connection.console.warn(m),
+		error: (m) => connection.console.error(m),
+	});
+	let pluginSpecsKey = JSON.stringify(config.plugins);
 	// Push/pull channel selection. A client that declares textDocument.diagnostic
 	// support (VS Code) PULLS for open documents — and still applies pushes into a
 	// separate collection, so pushing too shows every SQL diagnostic twice. When the
@@ -126,10 +140,17 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 	// the config file (pull never covers a closed document).
 	let clientPullsDiagnostics = false;
 
-	// The catalog every feature resolves against: an injected host SchemaProvider wins over the
-	// file-configured `.sqllens.json` schema (the embedding slot supplements, never fights, the file
-	// path). Read through this everywhere so the two sources have exactly one precedence point.
-	const activeSchema = (): SchemaProvider | undefined => options.schema ?? config.schema;
+	// The catalog every feature resolves against, with exactly one precedence point: an injected
+	// host SchemaProvider replaces everything (the embedding contract); otherwise the file-configured
+	// schema chains ahead of plugin catalogs (project plugins before user plugins), first hit wins.
+	// Rebuilt (not recomputed per call) so sessions and the prime loop see a stable object.
+	let activeCatalog: SchemaProvider | undefined;
+	const rebuildCatalog = (): void => {
+		activeCatalog =
+			options.schema ?? composeSchemas([...(config.schema ? [config.schema] : []), ...pluginHost.schemas()]);
+	};
+	rebuildCatalog();
+	const activeSchema = (): SchemaProvider | undefined => activeCatalog;
 
 	const uriToRel = (uri: string): string => {
 		try {
@@ -199,15 +220,30 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 
 	/** Reload config (from `text` when the config file is open in the editor, else from disk),
 	 *  republish its diagnostics, drop all cached sessions (dialect/schema may have changed),
-	 *  and re-analyze every open SQL document. */
+	 *  and re-analyze every open SQL document. Plugins reload only when their specs changed —
+	 *  a keystroke in the config file must not churn plugin connections. Reloads are serialized
+	 *  on a chain so rapid config edits can't interleave two plugin load/dispose cycles. */
+	let reloadChain: Promise<void> = Promise.resolve();
 	const reloadConfig = (text?: string): void => {
-		config = loadDialectConfig(rootDir, text);
-		for (const w of config.warnings) connection.console.info(w);
-		publishConfigDiagnostics();
-		sessions.clear();
-		for (const doc of documents.all()) if (!isConfigUri(doc.uri)) publish(doc.uri);
-		// Pull-capable clients re-fetch SQL diagnostics themselves after a config change.
-		if (clientPullsDiagnostics) void connection.languages.diagnostics.refresh();
+		reloadChain = reloadChain
+			.then(async () => {
+				config = loadDialectConfig(rootDir, text, options.userConfigPath);
+				for (const w of config.warnings) connection.console.info(w);
+				const specsKey = JSON.stringify(config.plugins);
+				if (specsKey !== pluginSpecsKey) {
+					pluginSpecsKey = specsKey;
+					await pluginHost.load(config.plugins, rootDir);
+				}
+				rebuildCatalog();
+				publishConfigDiagnostics();
+				sessions.clear();
+				for (const doc of documents.all()) if (!isConfigUri(doc.uri)) publish(doc.uri);
+				// Pull-capable clients re-fetch SQL diagnostics themselves after a config change.
+				if (clientPullsDiagnostics) void connection.languages.diagnostics.refresh();
+			})
+			.catch((err) =>
+				connection.console.error(`Config reload failed: ${err instanceof Error ? err.message : String(err)}`),
+			);
 	};
 
 	// Build (or rebuild) the SqlSession for `uri` from the TextDocuments registry's current
@@ -234,7 +270,7 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 	// The cached session for `uri`, rebuilding once as a fallback if it is missing.
 	const sessionFor = (uri: string): SqlSession | undefined => sessions.get(uri) ?? rebuild(uri);
 
-	connection.onInitialize((params: InitializeParams): InitializeResult => {
+	connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
 		// $(codicon) icons in hover markdown are opt-in: only a client that declares it
 		// (our VS Code extension, whose middleware renders them) gets them; everyone
 		// else gets plain markdown.
@@ -253,10 +289,15 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 				/* keep cwd */
 			}
 		}
-		config = loadDialectConfig(rootDir);
+		config = loadDialectConfig(rootDir, undefined, options.userConfigPath);
 		// window/logMessage at Info level. In vscode-languageserver v10 this is RemoteConsole.info
 		// (connection.console), not connection.window.logMessage — same wire notification.
 		for (const w of config.warnings) connection.console.info(w);
+		// Plugins load INSIDE initialize (activate() should be fast; slow work belongs in a
+		// provider's fetch) so every later request sees the final plugin set deterministically.
+		pluginSpecsKey = JSON.stringify(config.plugins);
+		await pluginHost.load(config.plugins, rootDir);
+		rebuildCatalog();
 		return {
 			capabilities: {
 				textDocumentSync: TextDocumentSyncKind.Incremental,
@@ -283,6 +324,9 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 	connection.onInitialized(() => publishConfigDiagnostics());
 
 	const publish = (uri: string): void => {
+		void publishNow(uri);
+	};
+	const publishNow = async (uri: string): Promise<void> => {
 		const session = rebuild(uri);
 		if (!session) return;
 		const schema = activeSchema();
@@ -290,7 +334,10 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 		// too would display every item twice (VS Code renders both channels). We still
 		// run the analysis here so the lazy-catalog miss/prime loop below stays live.
 		const diagnostics = [...configHint(), ...computeDiagnostics(session, schema)];
-		if (!clientPullsDiagnostics) connection.sendDiagnostics({ uri, diagnostics });
+		if (!clientPullsDiagnostics) {
+			await pluginHost.runHook("diagnostics", { session, uri, diagnostics });
+			connection.sendDiagnostics({ uri, diagnostics });
+		}
 
 		// Lazy catalog: computeDiagnostics just resolved against `schema`; a resolve-on-demand catalog
 		// (CallbackSchema for physical tables, CallbackTemplateCatalog for templated refs) records what it
@@ -344,40 +391,51 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 	// the config-hint diagnostic (top of file, while the config is broken) offers the
 	// SAME fixes as cross-file workspace edits into .sqllens.json — the fix belongs
 	// wherever the user actually is.
-	connection.onCodeAction((params) => {
+	connection.onCodeAction(async (params) => {
 		const overlaps = (a: Range, b: Range): boolean => {
 			const before = (p: { line: number; character: number }, q: { line: number; character: number }) =>
 				p.line < q.line || (p.line === q.line && p.character <= q.character);
 			return before(a.start, b.end) && before(b.start, a.end);
 		};
 		const onConfig = isConfigUri(params.textDocument.uri);
-		if (!onConfig) {
-			// SQL docs: only the zero-width hint at 0:0 carries actions, and only while broken.
-			const hint = configHint()[0];
-			if (!hint || !overlaps(hint.range, params.range)) return [];
-		}
 		const actions: CodeAction[] = [];
-		for (const { diagnostic, badValue } of configDiagnostics()) {
-			if (badValue === undefined) continue;
-			if (onConfig && !overlaps(diagnostic.range, params.range)) continue;
-			const ranked = [...PRIMARY_DIALECTS].sort(
-				(a, b) => editDistance(badValue.toLowerCase(), a) - editDistance(badValue.toLowerCase(), b),
-			);
-			ranked.forEach((dialect, i) =>
-				actions.push({
-					title: onConfig
-						? `Change dialect to "${dialect}"`
-						: `Fix .sqllens.json: change dialect "${badValue}" to "${dialect}"`,
-					kind: CodeActionKind.QuickFix,
-					diagnostics: [onConfig ? diagnostic : configHint()[0]],
-					isPreferred: i === 0,
-					edit: {
-						changes: {
-							[configUri()]: [{ range: diagnostic.range, newText: `"${dialect}"` }],
+		// Config quickfixes: on the config file always; on SQL docs only through the
+		// zero-width hint at 0:0, and only while the config is broken.
+		const hint = configHint()[0];
+		if (onConfig || (hint !== undefined && overlaps(hint.range, params.range))) {
+			for (const { diagnostic, badValue } of configDiagnostics()) {
+				if (badValue === undefined) continue;
+				if (onConfig && !overlaps(diagnostic.range, params.range)) continue;
+				const ranked = [...PRIMARY_DIALECTS].sort(
+					(a, b) => editDistance(badValue.toLowerCase(), a) - editDistance(badValue.toLowerCase(), b),
+				);
+				ranked.forEach((dialect, i) =>
+					actions.push({
+						title: onConfig
+							? `Change dialect to "${dialect}"`
+							: `Fix .sqllens.json: change dialect "${badValue}" to "${dialect}"`,
+						kind: CodeActionKind.QuickFix,
+						diagnostics: [onConfig ? diagnostic : configHint()[0]],
+						isPreferred: i === 0,
+						edit: {
+							changes: {
+								[configUri()]: [{ range: diagnostic.range, newText: `"${dialect}"` }],
+							},
 						},
-					},
-				}),
-			);
+					}),
+				);
+			}
+		}
+		if (!onConfig) {
+			const session = sessionFor(params.textDocument.uri);
+			if (session)
+				await pluginHost.runHook("codeActions", {
+					session,
+					uri: params.textDocument.uri,
+					range: params.range,
+					diagnostics: params.context.diagnostics,
+					actions,
+				});
 		}
 		return actions;
 	});
@@ -385,7 +443,7 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 	// Pull diagnostics (textDocument/diagnostic): same items as the push path computes.
 	// Channel selection is exclusive per client (see clientPullsDiagnostics): pull-capable
 	// clients get SQL diagnostics ONLY here; others ONLY via push.
-	connection.languages.diagnostics.on((params) => {
+	connection.languages.diagnostics.on(async (params) => {
 		// Config diagnostics travel ONLY on the push channel: push works for a closed
 		// file (Problems shows the broken config before it's ever opened) and pushes
 		// replace per-uri so there is exactly one copy. Serving them here too made
@@ -394,13 +452,28 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 		const session = sessionFor(params.textDocument.uri);
 		if (!session) return { kind: "full" as const, items: [] };
 		const report = computeDocumentDiagnostics(session, activeSchema());
-		return report.kind === "full" ? { ...report, items: [...configHint(), ...report.items] } : report;
+		if (report.kind !== "full") return report;
+		const items = [...configHint(), ...report.items];
+		await pluginHost.runHook("diagnostics", { session, uri: params.textDocument.uri, diagnostics: items });
+		return { ...report, items };
 	});
 
-	connection.onHover((params) => {
+	connection.onHover(async (params) => {
 		const session = sessionFor(params.textDocument.uri);
 		if (!session) return null;
-		return computeHover(session, params.position, { schema: activeSchema(), icons: themeIcons });
+		// Hooks see the pre-render model (cards + resolved symbol) and append; the join to
+		// markdown happens after, so plugin cards get the same `---` separators as ours.
+		const model = computeHoverModel(session, params.position, { schema: activeSchema(), icons: themeIcons }) ?? {
+			cards: [],
+		};
+		await pluginHost.runHook("hover", {
+			session,
+			uri: params.textDocument.uri,
+			position: params.position,
+			symbol: model.symbol,
+			cards: model.cards,
+		});
+		return renderHoverModel(model);
 	});
 
 	connection.onDefinition((params) => {
@@ -464,9 +537,17 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 		return session ? computeSemanticTokensDelta(session, uri, params.previousResultId) : { data: [] };
 	});
 
-	connection.onCompletion((params) => {
+	connection.onCompletion(async (params) => {
 		const session = sessionFor(params.textDocument.uri);
-		return session ? computeCompletion(session, params.position) : [];
+		if (!session) return [];
+		const items = computeCompletion(session, params.position);
+		await pluginHost.runHook("completion", {
+			session,
+			uri: params.textDocument.uri,
+			position: params.position,
+			items,
+		});
+		return items;
 	});
 
 	// completionItem/resolve receives ONLY the item (no doc/position); resolveCompletion reads its

@@ -40,7 +40,25 @@ const ICONS: Record<string, string> = {
 
 const MAX_COLUMNS = 30;
 
+/** The hover before rendering: markdown cards plus the resolved symbol — the shape plugin
+ *  hover hooks receive (they push extra cards; the server renders afterwards). */
+export interface HoverModel {
+	cards: string[];
+	range?: Hover["range"];
+	symbol?: Sym;
+}
+
 export function computeHover(session: SqlSession, position: Position, opts: HoverOptions = {}): Hover | null {
+	return renderHoverModel(computeHoverModel(session, position, opts));
+}
+
+/** Render the model to an LSP Hover (cards joined with `---` rules); null when empty. */
+export function renderHoverModel(model: HoverModel | null): Hover | null {
+	if (!model || model.cards.length === 0) return null;
+	return { contents: md(model.cards.join("\n\n---\n\n")), range: model.range };
+}
+
+export function computeHoverModel(session: SqlSession, position: Position, opts: HoverOptions = {}): HoverModel | null {
 	const off = session.doc.lines.offsetAt(position.line, position.character);
 	const icon = (kind: string): string => (opts.icons ? `$(${ICONS[kind] ?? "symbol-misc"}) ` : "");
 
@@ -62,7 +80,7 @@ export function computeHover(session: SqlSession, position: Position, opts: Hove
 
 	const syms = session.deriveSymbols();
 	const sym = symbolAt(syms, off);
-	if (!sym) return headline ? { contents: md(fence(headline)), range } : null;
+	if (!sym) return headline ? { cards: [fence(headline)], range } : null;
 
 	if (!headline && sym.type && sym.type.kind !== "unknown") headline = formatType(sym.type);
 
@@ -123,9 +141,7 @@ export function computeHover(session: SqlSession, position: Position, opts: Hove
 			const of = sym.source ? ` of \`${sym.source.name}\`` : "";
 			sections.push(`${icon("column")}**\`${sym.name}\`** — column${of}`);
 			if (sym.origins?.length) {
-				const lines = sym.origins.map(
-					(o) => `${icon("lineage")}from \`${[...o.table, o.column].join(".")}\``,
-				);
+				const lines = sym.origins.map((o) => `${icon("lineage")}from \`${[...o.table, o.column].join(".")}\``);
 				sections.push(lines.join("  \n"));
 			}
 			break;
@@ -141,8 +157,9 @@ export function computeHover(session: SqlSession, position: Position, opts: Hove
 	}
 
 	return {
-		contents: md(sections.join("\n\n---\n\n")),
+		cards: sections,
 		range: range ?? rangeFromSpan(sym.span),
+		symbol: sym,
 	};
 }
 

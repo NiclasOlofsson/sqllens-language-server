@@ -10,6 +10,7 @@
 		"Dialect is configured, never guessed: .sqllens.json at the workspace root maps file globs to dialects with a default; without it every file falls back to the databricks dialect",
 		"The schema catalog ({ \"table\": { \"column\": \"type\" } }, referenced from .sqllens.json) enables unknown-column diagnostics, typed hover and schema-aware completion; without it only the syntax tiers run — that silence is by design, not a bug",
 		"In VS Code install the sqllens-sql extension (server bundled); in Claude Code install the sqllens-lsp plugin AND npm install -g sqllens-language-server (the plugin does not bundle the server)",
-		"For programmatic SQL analysis use the sqllens library directly; this package is the LSP protocol adapter over it"
+		"For programmatic SQL analysis use the sqllens library directly; this package is the LSP protocol adapter over it",
+		"Plugins: the .sqllens.json \"plugins\" array loads ES modules (bare npm package names or ./ paths; user-level ~/.sqllens.json works too). A plugin default-exports activate(ctx) returning { schema, hooks, dispose } — see PLUGINS.md"
 	]
 }

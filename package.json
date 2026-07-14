@@ -9,6 +9,10 @@
 		".": {
 			"types": "./dist/index.d.ts",
 			"default": "./dist/index.js"
+		},
+		"./plugin": {
+			"types": "./dist/plugin.d.ts",
+			"default": "./dist/plugin.js"
 		}
 	},
 	"bin": {
@@ -18,7 +22,8 @@
 		"dist",
 		"bin",
 		"LICENSE",
-		"README.md"
+		"README.md",
+		"PLUGINS.md"
 	],
 	"engines": {
 		"node": ">=20.11"

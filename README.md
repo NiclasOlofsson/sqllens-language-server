@@ -194,6 +194,31 @@ defaults OPEN (a miss is unknown, never diagnosed). A subclass backing `columnsF
 with a describe cache should declare `override readonly world = "closed" as const`
 to keep the unknown-table flow.
 
+## Plugins
+
+The same live-catalog power, plus hooks over the LSP answers, is available WITHOUT
+embedding: declare a JavaScript plugin in `.sqllens.json` (or in a user-level
+`~/.sqllens.json`, active in every workspace) and the stdio server loads it. Plugins
+add live schema providers, custom lint rules with real semantic context, extra hover
+cards, completion items, and code actions:
+
+```json
+{ "plugins": ["sqllens-plugin-databricks", "./sqllens-rules.mjs"] }
+```
+
+```js
+export const api = 1;
+export default function activate(ctx) {
+	return {
+		schema: { resolve(parts) { ... }, async fetch(missing) { ... } },
+		hooks: { diagnostics({ session, diagnostics }) { ... } },
+	};
+}
+```
+
+The full contract, a five-minute lint-rule tutorial, npm distribution, config
+layering, and the security model live in [PLUGINS.md](PLUGINS.md).
+
 ## Development
 
 ```bash

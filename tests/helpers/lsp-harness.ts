@@ -1,9 +1,9 @@
 // In-memory LSP client/server pair over a duplex stream — the same code path as the stdio
 // binary (startServer is shared). Mirrors the plumbing in tests/lsp.acceptance.test.ts.
 import { Duplex } from "node:stream";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createConnection } from "vscode-languageserver/node";
 import {
@@ -15,7 +15,7 @@ import {
 	PublishDiagnosticsNotification,
 	type PublishDiagnosticsParams,
 } from "vscode-languageserver-protocol/node";
-import { startServer } from "../../src/server.js";
+import { startServer, type ServerOptions } from "../../src/server.js";
 
 class TestStream extends Duplex {
 	_write(chunk: Buffer, _enc: string, done: () => void) {
@@ -37,14 +37,26 @@ export interface LspHarness {
 	dispose(): void;
 }
 
-/** Boot a real server over an in-memory duplex against a temp workspace seeded with `files`. */
-export async function startLspHarness(files: Record<string, string>): Promise<LspHarness> {
+/** Boot a real server over an in-memory duplex against a temp workspace seeded with `files`.
+ *  The user-layer config defaults to `<root>/.sqllens.user.json` — nonexistent unless a test
+ *  seeds it — so a developer's real ~/.sqllens.json never leaks into the suite. */
+export async function startLspHarness(
+	files: Record<string, string>,
+	opts: { serverOptions?: ServerOptions } = {},
+): Promise<LspHarness> {
 	const root = mkdtempSync(join(tmpdir(), "sqllens-lsp-"));
-	for (const [name, content] of Object.entries(files)) writeFileSync(join(root, name), content);
+	for (const [name, content] of Object.entries(files)) {
+		const path = join(root, name);
+		mkdirSync(dirname(path), { recursive: true });
+		writeFileSync(path, content);
+	}
 
 	const up = new TestStream();
 	const down = new TestStream();
-	startServer(createConnection(new StreamMessageReader(up), new StreamMessageWriter(down)));
+	startServer(createConnection(new StreamMessageReader(up), new StreamMessageWriter(down)), {
+		userConfigPath: join(root, ".sqllens.user.json"),
+		...opts.serverOptions,
+	});
 
 	const client = createProtocolConnection(new StreamMessageReader(down), new StreamMessageWriter(up));
 	const diagnosticsByUri = new Map<string, PublishDiagnosticsParams>();
