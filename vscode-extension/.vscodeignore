@@ -1,0 +1,5 @@
+src/**
+tsconfig.json
+.vscodeignore
+**/*.map
+node_modules/.bin/**

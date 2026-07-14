@@ -1,0 +1,63 @@
+{
+	"name": "sqllens-sql",
+	"displayName": "sqllens SQL",
+	"description": "Multi-dialect SQL language support powered by the sqllens analyzer: diagnostics, typed hover, go-to-definition, references, completion, semantic tokens. Fully self-contained — the language server is bundled.",
+	"version": "0.1.0",
+	"publisher": "niclasolofsson",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/NiclasOlofsson/sqllens-language-server.git",
+		"directory": "vscode-extension"
+	},
+	"engines": {
+		"vscode": "^1.90.0"
+	},
+	"categories": [
+		"Programming Languages",
+		"Linters"
+	],
+	"keywords": [
+		"sql",
+		"lsp",
+		"sqllens",
+		"databricks",
+		"snowflake",
+		"postgres",
+		"tsql",
+		"duckdb"
+	],
+	"main": "./dist/extension.js",
+	"activationEvents": [
+		"onLanguage:sql"
+	],
+	"contributes": {
+		"languages": [
+			{
+				"id": "sql",
+				"extensions": [
+					".sql"
+				],
+				"aliases": [
+					"SQL",
+					"sql"
+				]
+			}
+		]
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"package": "npm run build && vsce package",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"sqllens-language-server": "^0.1.0",
+		"vscode-languageclient": "^9.0.1"
+	},
+	"devDependencies": {
+		"@types/node": "^25.9.2",
+		"@types/vscode": "^1.90.0",
+		"@vscode/vsce": "^3.6.2",
+		"typescript": "^6.0.3"
+	}
+}

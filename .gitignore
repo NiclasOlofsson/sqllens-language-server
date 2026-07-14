@@ -11,3 +11,6 @@ temp_auto/
 # per-feature implementation plans (planning scratch) — not project documentation.
 .claude/plans/
 .claude/PLAN.md
+
+# extension packaging output
+*.vsix

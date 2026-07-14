@@ -1,23 +1,57 @@
-# vscode-extension
+# sqllens SQL
 
-The VS Code client extension for sqllens-language-server (Milestone 2). A
-self-contained sub-package in this repo: own `package.json`, own `src/` + tests,
-own build and packaging (`vsce`), deliberately NOT an npm workspace of the root
-package — the server's semantic-release train at the repo root stays untouched.
+Multi-dialect SQL language support for VS Code, powered by the
+[sqllens](https://github.com/NiclasOlofsson/sqllens) analyzer via
+[sqllens-language-server](https://github.com/NiclasOlofsson/sqllens-language-server).
+Fully self-contained: the language server is bundled with the extension, so
+installing it is the only step.
 
-Release flow (decided 2026-07-13): chained, not manual. The extension workflow
-runs on completion of the server's Release workflow (`on: workflow_run` — NOT
-`on: release`, which never fires for GITHUB_TOKEN-created releases), pins the
-freshly released server version, mirrors it as the extension version, builds,
-tests, publishes via vsce. Manual dispatch remains the escape hatch for
-extension-only fixes. Tags namespaced `vscode-vX.Y.Z` so semantic-release never
-sees them.
+Source-first and semantics-first: SQL is understood statically, across ten real
+dialects, without a database connection.
 
-Decision (Niclas, 2026-07-13): the extension is COMPLETE — it bundles the server
-as an npm dependency and runs it in-process (module transport), so installing
-the extension is the only step. No global npm install, no PATH lookup. The cost
-is a fat vsix and a version pin: shipping server updates to VS Code users means
-cutting an extension release.
+## Features
 
-The extension is still client wiring only (vscode-languageclient around the
-bundled server); no analysis, no server source lives here.
+- Diagnostics: positioned syntax errors plus semantic errors (unknown
+  table/column/field) when a schema catalog is configured.
+- Typed hover (with nullability where provable), go-to-definition, find
+  references, document highlight, document symbols, code lens.
+- Scope-aware completion (works mid-edit), signature help, inlay hints,
+  semantic highlighting, folding and selection ranges.
+
+Dialects: `databricks`, `tsql`, `snowflake`, `bigquery`, `redshift`,
+`postgres`, `duckdb`, `trino`, `sqlite`, `mysql`.
+
+## Configuration: `.sqllens.json`
+
+Optional, at the workspace root. Maps files to dialects (first match wins) and
+points at a schema catalog that switches on the semantic tier:
+
+```json
+{
+	"dialects": [{ "files": "tsql/**/*.sql", "dialect": "tsql" }],
+	"default": "duckdb",
+	"schema": "schema.json"
+}
+```
+
+`schema.json` is a plain `{ "table": { "column": "type" } }` catalog. Without
+any config, files fall back to the `databricks` dialect and the syntax tiers
+still work.
+
+## Development
+
+This folder is a self-contained sub-package of the
+[sqllens-language-server repo](https://github.com/NiclasOlofsson/sqllens-language-server):
+
+```bash
+npm install
+npm run build        # tsc → dist/
+npm run package      # vsce → .vsix
+```
+
+The bundled server version is pinned by this package's dependency on
+`sqllens-language-server`; extension releases mirror server releases.
+
+## License
+
+MIT

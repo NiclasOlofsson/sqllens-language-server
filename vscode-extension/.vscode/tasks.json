@@ -1,0 +1,15 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"command": "npm run build",
+			"options": {
+				"shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+			},
+			"label": "npm: build",
+			"problemMatcher": "$tsc",
+			"presentation": { "reveal": "silent" }
+		}
+	]
+}
