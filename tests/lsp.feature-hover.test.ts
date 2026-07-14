@@ -45,6 +45,49 @@ describe("computeHover", () => {
 		expect(v).toContain("`amount` · decimal");
 	});
 
+	// Lineage regression pins (user report 2026-07-14 claimed missing lineage on unaliased
+	// columns; a 30-shape matrix showed every SELECT form works — these lock that in).
+	it("bare column with an unaliased table carries the base-table lineage line", () => {
+		const sql = "SELECT amount FROM sales";
+		const schema = new Schema({ sales: { amount: "decimal" } });
+		const h = computeHover(session(sql, schema), { line: 0, character: sql.indexOf("amount") }, { schema });
+		const v = (h!.contents as { value: string }).value;
+		expect(v).toContain("— column of `sales`");
+		expect(v).toContain("from `sales.amount`");
+	});
+
+	it("table-qualified column (the no-alias qualification) carries lineage", () => {
+		const sql = "SELECT sales.amount FROM sales";
+		const schema = new Schema({ sales: { amount: "decimal" } });
+		const h = computeHover(session(sql, schema), { line: 0, character: sql.indexOf("amount") }, { schema });
+		expect((h!.contents as { value: string }).value).toContain("from `sales.amount`");
+	});
+
+	it("lineage traces through a CTE to the base table", () => {
+		const sql = "WITH c AS (SELECT amount FROM sales) SELECT amount FROM c";
+		const schema = new Schema({ sales: { amount: "decimal" } });
+		const h = computeHover(session(sql, schema), { line: 0, character: sql.lastIndexOf("amount") }, { schema });
+		expect((h!.contents as { value: string }).value).toContain("from `sales.amount`");
+	});
+
+	it("WHERE-clause column carries lineage", () => {
+		const sql = "SELECT amount FROM sales WHERE region = 'x'";
+		const schema = new Schema({ sales: { amount: "decimal", region: "varchar" } });
+		const h = computeHover(session(sql, schema), { line: 0, character: sql.indexOf("region") }, { schema });
+		expect((h!.contents as { value: string }).value).toContain("from `sales.region`");
+	});
+
+	// KNOWN GAP, upstream: sqllens deriveSymbols() returns no symbols for UPDATE/DELETE
+	// (and models INSERT VALUES as synthetic col1/col2), so DML columns hover without a
+	// card or lineage. This sentinel FAILS THE SUITE the day sqllens adds DML symbols —
+	// then flip it into a real assertion. Tracked in the sqllens repo.
+	it.fails("(sentinel) UPDATE SET column hover has a column card once sqllens models DML", () => {
+		const sql = "UPDATE sales SET amount = 1 WHERE region = 'x'";
+		const schema = new Schema({ sales: { amount: "decimal", region: "varchar" } });
+		const h = computeHover(session(sql, schema), { line: 0, character: sql.indexOf("amount") }, { schema });
+		expect((h?.contents as { value: string } | undefined)?.value ?? "").toContain("— column");
+	});
+
 	it("falls back to symbol kind + name when no type is inferable (no schema)", () => {
 		const sql = "WITH c AS (SELECT 1 AS x) SELECT x FROM c";
 		const s = SqlSession.create(sql, "databricks");
