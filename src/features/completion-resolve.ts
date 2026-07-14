@@ -27,8 +27,9 @@ export function resolveCompletion(item: CompletionItem): CompletionItem {
 	return item;
 }
 
-/** `name(p1: t1, p2: t2)`; a variadic signature marks its repeating last param with a trailing `…`. */
-function renderSignature(sig: FnSignature): string {
+/** `name(p1: t1, p2: t2)`; a variadic signature marks its repeating last param with a trailing `…`.
+ *  Shared with the hover card's function section. */
+export function renderSignature(sig: FnSignature): string {
 	const parts = sig.params.map(paramLabel);
 	const rendered =
 		sig.variadic && parts.length > 0 ? [...parts.slice(0, -1), `${parts[parts.length - 1]}, …`] : parts;

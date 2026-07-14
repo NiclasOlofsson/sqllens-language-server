@@ -1,6 +1,7 @@
 import type { Hover, Position } from "vscode-languageserver-types";
-import { formatType, symbolAt, type SchemaProvider, type SqlSession, type Sym } from "sqllens";
+import { formatType, lookupSignature, symbolAt, type SchemaProvider, type SqlSession, type Sym } from "sqllens";
 import { cellBaseAt, rangeFromCst, rangeFromSpan, shiftRange } from "../ranges.js";
+import { renderSignature } from "./completion-resolve.js";
 
 // ---------------------------------------------------------------------------
 // Hover: an Anvil-style markdown card, filled with what static analysis knows.
@@ -129,9 +130,12 @@ export function computeHover(session: SqlSession, position: Position, opts: Hove
 			}
 			break;
 		}
-		case "function":
+		case "function": {
 			sections.push(`${icon("function")}**\`${sym.name}\`** — function`);
+			const sig = lookupSignature(session.dialect, sym.name.toLowerCase());
+			if (sig) sections.push("```sql\n" + renderSignature(sig) + "\n```");
 			break;
+		}
 		default:
 			sections.push(`${icon(sym.kind)}**\`${sym.name}\`** — ${sym.kind}`);
 	}
