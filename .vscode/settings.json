@@ -1,6 +1,6 @@
 {
 	// This repo works on plain SQL: route .sql to the stock "sql" language so the
-	// sqllens-sql extension activates, regardless of user-level dbt associations
+	// sqllens-vscode extension activates, regardless of user-level dbt associations
 	// (*.sql -> jinja-sql) on machines that carry them.
 	"files.associations": {
 		"*.sql": "sql"

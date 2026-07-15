@@ -45,12 +45,12 @@ jobs:
       - name: Check Marketplace for this version
         id: gate
         run: |
-          PUBLISHED=$(npx --yes @vscode/vsce show nickeolofsson.sqllens-sql --json 2>/dev/null \
+          PUBLISHED=$(npx --yes @vscode/vsce show nickeolofsson.sqllens-vscode --json 2>/dev/null \
             | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).versions.map(v=>v.version).join(' '))}catch{console.log('')}})") || PUBLISHED=""
           echo "published=$PUBLISHED"
           if echo " $PUBLISHED " | grep -q " ${{ steps.server.outputs.version }} "; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::sqllens-sql ${{ steps.server.outputs.version }} already on the Marketplace — skipping"
+            echo "::notice::sqllens-vscode ${{ steps.server.outputs.version }} already on the Marketplace — skipping"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi

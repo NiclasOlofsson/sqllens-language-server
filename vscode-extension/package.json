@@ -1,5 +1,5 @@
 {
-	"name": "sqllens-sql",
+	"name": "sqllens-vscode",
 	"displayName": "sqllens SQL",
 	"description": "Multi-dialect SQL language support powered by the sqllens analyzer: diagnostics, typed hover, go-to-definition, references, completion, semantic tokens. Fully self-contained — the language server is bundled.",
 	"version": "0.3.0",
