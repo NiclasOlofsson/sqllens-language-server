@@ -1,5 +1,13 @@
 import type { Hover, Position } from "vscode-languageserver-types";
-import { formatType, lookupSignature, symbolAt, type SchemaProvider, type SqlSession, type Sym } from "sqllens";
+import {
+	formatType,
+	lookupFnDoc,
+	lookupSignature,
+	symbolAt,
+	type SchemaProvider,
+	type SqlSession,
+	type Sym,
+} from "sqllens";
 import { cellBaseAt, rangeFromCst, rangeFromSpan, shiftRange } from "../ranges.js";
 import { renderOverloads } from "./completion-resolve.js";
 
@@ -148,8 +156,12 @@ export function computeHoverModel(session: SqlSession, position: Position, opts:
 		}
 		case "function": {
 			sections.push(`${icon("function")}**\`${sym.name}\`** — function`);
-			const sigs = lookupSignature(session.dialect, sym.name.toLowerCase());
+			const lower = sym.name.toLowerCase();
+			const doc = lookupFnDoc(session.dialect, lower);
+			if (doc?.description) sections.push(doc.description);
+			const sigs = lookupSignature(session.dialect, lower);
 			if (sigs && sigs.length > 0) sections.push("```sql\n" + renderOverloads(sigs) + "\n```");
+			if (doc?.docUrl) sections.push(`[${session.dialect} docs](${doc.docUrl})`);
 			break;
 		}
 		default:

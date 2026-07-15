@@ -88,6 +88,16 @@ describe("computeHover", () => {
 		expect((h?.contents as { value: string } | undefined)?.value ?? "").toContain("— column");
 	});
 
+	it("function hover carries the harvested description and the vendor docs link (sqllens 1.3)", () => {
+		const sql = "SELECT upper(region) FROM sales";
+		const s = SqlSession.create(sql, "duckdb");
+		const h = computeHover(s, { line: 0, character: sql.indexOf("upper") });
+		const v = (h!.contents as { value: string }).value;
+		expect(v).toContain("— function");
+		expect(v).toContain("Converts `string` to upper case.");
+		expect(v).toContain("](https://duckdb.org/");
+	});
+
 	it("falls back to symbol kind + name when no type is inferable (no schema)", () => {
 		const sql = "WITH c AS (SELECT 1 AS x) SELECT x FROM c";
 		const s = SqlSession.create(sql, "databricks");

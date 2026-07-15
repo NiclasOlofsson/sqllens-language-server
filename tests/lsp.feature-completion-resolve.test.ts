@@ -22,6 +22,19 @@ describe("resolveCompletion", () => {
 		expect(doc.split("\n").filter((l) => l.startsWith("date_add(")).length).toBeGreaterThanOrEqual(2);
 	});
 
+	it("documentation leads with the harvested description and ends with the vendor docs link", () => {
+		const resolved = resolveCompletion(fnItem("upper", "duckdb") as never);
+		const doc = (resolved.documentation as { value: string }).value;
+		expect(doc).toContain("Converts `string` to upper case.");
+		expect(doc).toContain("](https://duckdb.org/");
+	});
+
+	it("a single-overload function gets NO signature fence in documentation (detail already shows it)", () => {
+		const resolved = resolveCompletion(fnItem("upper", "duckdb") as never);
+		expect(resolved.detail).toBe("upper(string)");
+		expect((resolved.documentation as { value: string }).value).not.toContain("```");
+	});
+
 	it("an unknown function is returned unchanged", () => {
 		const item = fnItem("definitely_not_a_function_xyz", "databricks");
 		const resolved = resolveCompletion(item as never);
