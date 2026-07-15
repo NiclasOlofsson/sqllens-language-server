@@ -11,7 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const wordmark = (fill) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <text
-    x="64" y="38"
+    x="64" y="44"
     font-family="Arial, Helvetica, sans-serif"
     font-size="64"
     font-weight="700"
@@ -20,18 +20,18 @@ const wordmark = (fill) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
     dominant-baseline="middle"
     textLength="108"
     lengthAdjust="spacingAndGlyphs"
-  >sql</text>
+  >LSP</text>
   <text
-    x="64" y="90"
+    x="64" y="86"
     font-family="Arial, Helvetica, sans-serif"
-    font-size="64"
+    font-size="36"
     font-weight="500"
     fill="${fill}"
     text-anchor="middle"
     dominant-baseline="middle"
     textLength="108"
     lengthAdjust="spacingAndGlyphs"
-  >lens</text>
+  >sqllens</text>
 </svg>`;
 
 function renderSvg(svgStr, size, destPath) {

@@ -3,8 +3,18 @@
 	"displayName": "sqllens SQL",
 	"description": "Multi-dialect SQL language support powered by the sqllens analyzer: diagnostics, typed hover, go-to-definition, references, completion, semantic tokens. Fully self-contained — the language server is bundled.",
 	"version": "0.3.0",
-	"publisher": "niclasolofsson",
+	"publisher": "nickeolofsson",
 	"icon": "resources/icons/sqllens-128.png",
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": false,
+			"description": "The server reads workspace configuration (.sqllens.json) and can load workspace-declared plugins; it stays off until the folder is trusted."
+		},
+		"virtualWorkspaces": {
+			"supported": false,
+			"description": "The language server reads .sqllens.json and schema catalogs from the local file system."
+		}
+	},
 	"license": "MIT",
 	"repository": {
 		"type": "git",

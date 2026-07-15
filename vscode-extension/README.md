@@ -38,6 +38,20 @@ points at a schema catalog that switches on the semantic tier:
 any config, files fall back to the `databricks` dialect and the syntax tiers
 still work.
 
+No config file at all? The language picker doubles as a dialect picker: set a
+file (or a `files.associations` glob) to "SQL (DuckDB)", "SQL (BigQuery)", ...
+and that binds its dialect directly.
+
+## Plugins
+
+JavaScript plugins declared in `.sqllens.json` add live schema catalogs and
+custom diagnostics/hover/completion hooks; tutorial in
+[PLUGINS.md](https://github.com/NiclasOlofsson/sqllens-language-server/blob/master/PLUGINS.md).
+
+## Feedback
+
+Issues and suggestions: [GitHub issues](https://github.com/NiclasOlofsson/sqllens-language-server/issues).
+
 ## Development
 
 This folder is a self-contained sub-package of the

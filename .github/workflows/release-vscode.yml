@@ -1,0 +1,81 @@
+name: Release VS Code Extension
+
+on:
+  workflow_run: # after a successful server release, so the extension always bundles a published server
+    workflows: [Release]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch: # manual escape hatch: republish without a fresh server release
+
+permissions:
+  contents: write # pushes the version-mirror commit and the vscode-v* tag
+
+jobs:
+  publish:
+    # workflow_run fires on failure too — publish only when the server release succeeded
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode-extension
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: master
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+
+      # The extension version MIRRORS the just-released server version (one number,
+      # one release train). npm propagation can lag the GitHub release by a moment.
+      - name: Resolve released server version
+        id: server
+        run: |
+          for i in $(seq 1 10); do
+            V=$(npm view sqllens-language-server version 2>/dev/null) && [ -n "$V" ] && break
+            sleep 15
+          done
+          [ -n "$V" ] || { echo "npm never served a version"; exit 1; }
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Server version: $V"
+
+      # Idempotency: workflow_dispatch re-runs (or a re-delivered workflow_run) must not
+      # re-publish an existing version — vsce would fail hard anyway; skip cleanly instead.
+      - name: Check Marketplace for this version
+        id: gate
+        run: |
+          PUBLISHED=$(npx --yes @vscode/vsce show nickeolofsson.sqllens-sql --json 2>/dev/null \
+            | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).versions.map(v=>v.version).join(' '))}catch{console.log('')}})") || PUBLISHED=""
+          echo "published=$PUBLISHED"
+          if echo " $PUBLISHED " | grep -q " ${{ steps.server.outputs.version }} "; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::sqllens-sql ${{ steps.server.outputs.version }} already on the Marketplace — skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pin server and mirror version
+        if: steps.gate.outputs.skip == 'false'
+        run: |
+          V=${{ steps.server.outputs.version }}
+          npm pkg set version="$V" dependencies.sqllens-language-server="^$V"
+          npm install
+          npm run build
+
+      - name: Publish to the Marketplace
+        if: steps.gate.outputs.skip == 'false'
+        run: npx --yes @vscode/vsce publish -p "$VSCE_PAT"
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Commit version mirror and tag
+        if: steps.gate.outputs.skip == 'false'
+        run: |
+          V=${{ steps.server.outputs.version }}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore(vscode-extension): $V [skip ci]"
+          git tag "vscode-v$V"
+          git push origin master --tags
