@@ -1,6 +1,6 @@
 import { MarkupKind } from "vscode-languageserver-types";
 import type { CompletionItem } from "vscode-languageserver-types";
-import { lookupSignature, type FnSignature, type ParamSig } from "sqllens";
+import { lookupSignature, renderSignature, type FnSignature } from "sqllens";
 import type { CompletionItemData } from "./completion.js";
 
 // ---------------------------------------------------------------------------
@@ -31,23 +31,10 @@ export function resolveCompletion(item: CompletionItem): CompletionItem {
 	return item;
 }
 
-/** The overload set as one fence body, one rendered signature per line, elided past the cap. */
+/** The overload set as one fence body, one rendered signature per line (sqllens's canonical
+ *  vendor-notation renderer — optional params bracketed, variadic marked), elided past the cap. */
 export function renderOverloads(sigs: readonly FnSignature[]): string {
-	const shown = sigs.slice(0, MAX_OVERLOADS).map(renderSignature);
+	const shown = sigs.slice(0, MAX_OVERLOADS).map((s) => renderSignature(s));
 	if (sigs.length > shown.length) shown.push(`-- and ${sigs.length - shown.length} more overload(s)`);
 	return shown.join("\n");
-}
-
-/** `name(p1: t1, p2: t2)`; a variadic signature marks its repeating last param with a trailing `…`.
- *  Shared with the hover card's function section. */
-export function renderSignature(sig: FnSignature): string {
-	const parts = sig.params.map(paramLabel);
-	const rendered =
-		sig.variadic && parts.length > 0 ? [...parts.slice(0, -1), `${parts[parts.length - 1]}, …`] : parts;
-	return `${sig.name}(${rendered.join(", ")})`;
-}
-
-/** One param's display string: `name: type` when typed, else just `name`. */
-function paramLabel(p: ParamSig): string {
-	return p.type ? `${p.name}: ${p.type}` : p.name;
 }
