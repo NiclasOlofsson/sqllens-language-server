@@ -1,3 +1,16 @@
+# [0.4.0](https://github.com/NiclasOlofsson/sqllens-language-server/compare/v0.3.0...v0.4.0) (2026-07-15)
+
+
+### Features
+
+* sql-<dialect> language ids bind the dialect per document ([a2d6aa9](https://github.com/NiclasOlofsson/sqllens-language-server/commit/a2d6aa92f30eecb89336a3a48ea11afde4351e99))
+* sqllens 1.3.0, adopt the canonical signature renderer ([6aef031](https://github.com/NiclasOlofsson/sqllens-language-server/commit/6aef0317baf00de4bc0ecfbb007ae5d7083deeef)), closes [#33](https://github.com/NiclasOlofsson/sqllens-language-server/issues/33)
+* sqllens 1.4.0 ([30479ce](https://github.com/NiclasOlofsson/sqllens-language-server/commit/30479ce8912db96189b36b988de0222b4179676a))
+* surface harvested function docs (sqllens 1.3 FN_DOCS) ([681466f](https://github.com/NiclasOlofsson/sqllens-language-server/commit/681466fd0cfa5d37012e126400307333b4a057c7))
+* **vscode-extension:** extension id sqllens-vscode ([97ce35e](https://github.com/NiclasOlofsson/sqllens-language-server/commit/97ce35e9ce04c6711eaaa9d2b013495fa41d56d3))
+* **vscode-extension:** Marketplace readiness ([babc0cc](https://github.com/NiclasOlofsson/sqllens-language-server/commit/babc0ccf5708547a69702a927a50d1b48cdb9764))
+* **vscode-extension:** sqllens wordmark icon for the Marketplace ([9368192](https://github.com/NiclasOlofsson/sqllens-language-server/commit/9368192cb8bb897234ce9c6312c2b237a8f25dac)), closes [#777777](https://github.com/NiclasOlofsson/sqllens-language-server/issues/777777)
+
 # [0.3.0](https://github.com/NiclasOlofsson/sqllens-language-server/compare/v0.2.0...v0.3.0) (2026-07-14)
 
 

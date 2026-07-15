@@ -1,6 +1,6 @@
 {
 	"name": "sqllens-language-server",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "A multi-dialect SQL language server (LSP) built on sqllens: diagnostics, hover, go-to-definition, references, completion, signature help, semantic tokens, and more. Source-first, semantics-first.",
 	"type": "module",
 	"main": "./dist/index.js",
