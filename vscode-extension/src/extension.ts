@@ -21,6 +21,20 @@ export async function activate(_context: vscode.ExtensionContext): Promise<void>
 		{
 			documentSelector: [
 				{ language: "sql" },
+				// Our sql-<dialect> language ids: picking one IS picking the dialect — the
+				// server reads it off didOpen's languageId and it wins over .sqllens.json.
+				...[
+					"databricks",
+					"tsql",
+					"snowflake",
+					"bigquery",
+					"redshift",
+					"postgres",
+					"duckdb",
+					"trino",
+					"sqlite",
+					"mysql",
+				].map((d) => ({ language: `sql-${d}` })),
 				// Route the server's own config file to it: it validates the config live,
 				// squiggles bad values, and serves the change-dialect quickfixes.
 				{ pattern: "**/.sqllens.json" },

@@ -159,6 +159,18 @@ export function defaultUserConfigPath(): string {
 }
 
 /**
+ * The dialect a `sql-<name>` language id encodes, resolved through the library's
+ * derived-dialect map (so engine names bind too: `sql-athena` → trino, `sql-fabric` → tsql).
+ * undefined for plain "sql" and anything foreign — those keep the config path. A
+ * dialect-carrying language id is EXPLICIT per-document configuration (the user or client
+ * bound the file to that language), so the server lets it win over the config file's rules.
+ */
+export function dialectFromLanguageId(languageId: string): Dialect | undefined {
+	if (!languageId.startsWith("sql-")) return undefined;
+	return resolveDialect(languageId.slice("sql-".length));
+}
+
+/**
  * Load `<root>/.sqllens.json` layered over the user config. Never throws.
  * `configText` overrides the on-disk PROJECT content (the server passes the
  * open editor buffer so validation is live); `schema` files are always read

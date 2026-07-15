@@ -16,7 +16,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { join, relative } from "node:path";
 import { appendFileSync } from "node:fs";
 import { SqlSession, type SchemaProvider } from "sqllens";
-import { editDistance, loadDialectConfig, PRIMARY_DIALECTS, type DialectConfig } from "./dialect-config.js";
+import {
+	dialectFromLanguageId,
+	editDistance,
+	loadDialectConfig,
+	PRIMARY_DIALECTS,
+	type DialectConfig,
+} from "./dialect-config.js";
 import { PluginHost, composeSchemas } from "./plugins.js";
 import { computeDiagnostics } from "./features/diagnostics.js";
 import { computeDocumentDiagnostics } from "./features/pull-diagnostics.js";
@@ -257,7 +263,9 @@ export function startServer(connection: Connection, options: ServerOptions = {})
 		if (isConfigUri(uri)) return undefined; // the config file never enters the SQL pipeline
 		const td = documents.get(uri);
 		if (!td) return undefined;
-		const dialect = config.dialectFor(uriToRel(uri));
+		// Dialect precedence: a dialect-carrying language id (sql-duckdb, sql-athena, …) is the
+		// most file-specific explicit signal and wins; plain "sql" resolves via .sqllens.json.
+		const dialect = dialectFromLanguageId(td.languageId) ?? config.dialectFor(uriToRel(uri));
 		const prev = sessions.get(uri);
 		const session =
 			prev && prev.dialect === dialect

@@ -166,6 +166,36 @@ config is broken, SQL documents carry a one-line Information hint pointing at
 it — the channel that reaches consumers that never open the config file. An
 edit to the open config re-validates and re-applies dialects live, no restart.
 
+### Binding a dialect via the language id
+
+A document opened with a `sql-<dialect>` language id carries its dialect on the
+wire, no config file needed. The suffix resolves through the same derived-dialect
+map as config values, so engine names work too:
+
+```text
+sql-duckdb    → duckdb        sql-bigquery  → bigquery
+sql-tsql      → tsql          sql-athena    → trino
+sql-fabric    → tsql          sql-postgres  → postgres
+```
+
+A dialect-carrying language id is the most file-specific signal and wins over
+`.sqllens.json` rules; plain `sql` keeps the config path. The VS Code extension
+registers all ten as pickable languages ("SQL (DuckDB)", "SQL (BigQuery)", …),
+so the language picker doubles as a dialect picker, and `files.associations`
+can bind different globs to different dialects without a `.sqllens.json`:
+
+```json
+{
+	"files.associations": {
+		"warehouse/**/*.sql": "sql-snowflake",
+		"local/**/*.sql": "sql-duckdb"
+	}
+}
+```
+
+Any LSP client can use the same binding by sending the language id in didOpen
+(Claude Code: map extensions in the plugin's `.lsp.json`, e.g. `".sql": "sql-duckdb"`).
+
 ## Attaching a client
 
 Point any LSP client at the stdio launch command:

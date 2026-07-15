@@ -28,7 +28,7 @@ class TestStream extends Duplex {
 export interface LspHarness {
 	root: string;
 	client: ReturnType<typeof createProtocolConnection>;
-	open(name: string, text: string): string;
+	open(name: string, text: string, languageId?: string): string;
 	waitForDiagnostics(uri: string): Promise<PublishDiagnosticsParams>;
 	waitForDiagnosticsWhere(
 		uri: string,
@@ -71,10 +71,10 @@ export async function startLspHarness(
 		workspaceFolders: null,
 	});
 
-	const open = (name: string, text: string): string => {
+	const open = (name: string, text: string, languageId = "sql"): string => {
 		const uri = pathToFileURL(join(root, name)).toString();
 		void client.sendNotification(DidOpenTextDocumentNotification.type, {
-			textDocument: { uri, languageId: "sql", version: 1, text },
+			textDocument: { uri, languageId, version: 1, text },
 		});
 		return uri;
 	};

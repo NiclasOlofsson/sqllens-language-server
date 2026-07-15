@@ -29,7 +29,17 @@
 	],
 	"main": "./dist/extension.js",
 	"activationEvents": [
-		"onLanguage:sql"
+		"onLanguage:sql",
+		"onLanguage:sql-databricks",
+		"onLanguage:sql-tsql",
+		"onLanguage:sql-snowflake",
+		"onLanguage:sql-bigquery",
+		"onLanguage:sql-redshift",
+		"onLanguage:sql-postgres",
+		"onLanguage:sql-duckdb",
+		"onLanguage:sql-trino",
+		"onLanguage:sql-sqlite",
+		"onLanguage:sql-mysql"
 	],
 	"contributes": {
 		"languages": [
@@ -42,6 +52,118 @@
 					"SQL",
 					"sql"
 				]
+			},
+			{
+				"id": "sql-databricks",
+				"aliases": [
+					"SQL (Databricks)"
+				]
+			},
+			{
+				"id": "sql-tsql",
+				"aliases": [
+					"SQL (T-SQL)"
+				]
+			},
+			{
+				"id": "sql-snowflake",
+				"aliases": [
+					"SQL (Snowflake)"
+				]
+			},
+			{
+				"id": "sql-bigquery",
+				"aliases": [
+					"SQL (BigQuery)"
+				]
+			},
+			{
+				"id": "sql-redshift",
+				"aliases": [
+					"SQL (Redshift)"
+				]
+			},
+			{
+				"id": "sql-postgres",
+				"aliases": [
+					"SQL (PostgreSQL)"
+				]
+			},
+			{
+				"id": "sql-duckdb",
+				"aliases": [
+					"SQL (DuckDB)"
+				]
+			},
+			{
+				"id": "sql-trino",
+				"aliases": [
+					"SQL (Trino)"
+				]
+			},
+			{
+				"id": "sql-sqlite",
+				"aliases": [
+					"SQL (SQLite)"
+				]
+			},
+			{
+				"id": "sql-mysql",
+				"aliases": [
+					"SQL (MySQL)"
+				]
+			}
+		],
+		"grammars": [
+			{
+				"language": "sql-databricks",
+				"scopeName": "source.sql",
+				"path": "./syntaxes/sql.tmLanguage.json"
+			},
+			{
+				"language": "sql-tsql",
+				"scopeName": "source.sql",
+				"path": "./syntaxes/sql.tmLanguage.json"
+			},
+			{
+				"language": "sql-snowflake",
+				"scopeName": "source.sql",
+				"path": "./syntaxes/sql.tmLanguage.json"
+			},
+			{
+				"language": "sql-bigquery",
+				"scopeName": "source.sql",
+				"path": "./syntaxes/sql.tmLanguage.json"
+			},
+			{
+				"language": "sql-redshift",
+				"scopeName": "source.sql",
+				"path": "./syntaxes/sql.tmLanguage.json"
+			},
+			{
+				"language": "sql-postgres",
+				"scopeName": "source.sql",
+				"path": "./syntaxes/sql.tmLanguage.json"
+			},
+			{
+				"language": "sql-duckdb",
+				"scopeName": "source.sql",
+				"path": "./syntaxes/sql.tmLanguage.json"
+			},
+			{
+				"language": "sql-trino",
+				"scopeName": "source.sql",
+				"path": "./syntaxes/sql.tmLanguage.json"
+			},
+			{
+				"language": "sql-sqlite",
+				"scopeName": "source.sql",
+				"path": "./syntaxes/sql.tmLanguage.json"
+			},
+			{
+				"language": "sql-mysql",
+				"scopeName": "source.sql",
+				"path": "./syntaxes/sql.tmLanguage.json"
 			}
 		]
 	},
