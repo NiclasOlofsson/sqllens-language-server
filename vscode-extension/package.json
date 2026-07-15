@@ -4,6 +4,7 @@
 	"description": "Multi-dialect SQL language support powered by the sqllens analyzer: diagnostics, typed hover, go-to-definition, references, completion, semantic tokens. Fully self-contained — the language server is bundled.",
 	"version": "0.3.0",
 	"publisher": "niclasolofsson",
+	"icon": "resources/icons/sqllens-128.png",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
@@ -177,6 +178,7 @@
 		"vscode-languageclient": "^9.0.1"
 	},
 	"devDependencies": {
+		"@resvg/resvg-js": "^2.6.2",
 		"@types/node": "^25.9.2",
 		"@types/vscode": "^1.90.0",
 		"@vscode/vsce": "^3.6.2",

@@ -3,3 +3,6 @@ tsconfig.json
 .vscodeignore
 **/*.map
 node_modules/.bin/**
+scripts/**
+node_modules/@resvg/**
+*.vsix
