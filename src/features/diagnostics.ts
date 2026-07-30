@@ -35,9 +35,13 @@ export function computeDiagnostics(session: SqlSession, schema?: SchemaProvider)
 	for (const d of session.analyze().diagnostics) {
 		const isCall = d.kind === "wrong-arity" || d.kind === "wrong-argument-type";
 		if (!isCall && !schema) continue;
+		// Ambiguity (a bare name matching several catalog paths, columns since the start and tables
+		// since sqllens 1.5) is a warning, not an error: the name resolves somewhere, the engine
+		// just can't say the author meant that one. Unknown names stay errors.
+		const isAmbiguous = d.kind === "ambiguous-column" || d.kind === "ambiguous-table";
 		out.push({
 			range: rangeFromSpan(d), // full span from qualify (Task A8) — squiggles the whole identifier
-			severity: isCall || d.kind === "ambiguous-column" ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
+			severity: isCall || isAmbiguous ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
 			source: "sqllens",
 			message: d.message,
 		});

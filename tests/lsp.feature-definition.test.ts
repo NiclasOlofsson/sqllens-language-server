@@ -16,6 +16,16 @@ describe("computeDefinition", () => {
 		expect(defStart.character).toBeLessThan(refIdx);
 	});
 
+	it("jumps from a tsql variable use to its DECLARE", () => {
+		// sqllens 1.7 made DECLARE a real declaration, so the generic Sym.definition path already
+		// answers here; this pins that a T-SQL script's local variables navigate like CTE names do.
+		const sql = "DECLARE @total int = 5;\nSELECT @total + 1 AS bumped;";
+		const use = SqlSession.create(sql, "tsql");
+		const loc = computeDefinition(use, { line: 1, character: 9 }, "file:///q.sql");
+		// The DECLARE's `@total`, sigil included (line 0, after "DECLARE ").
+		expect(loc?.range.start).toEqual({ line: 0, character: sql.indexOf("@total") });
+	});
+
 	it("returns null for a bare catalog table with no in-query definition", () => {
 		const sql = "SELECT id FROM sales";
 		const loc = computeDefinition(session(sql), lineCol(sql, sql.indexOf("sales")), "file:///q.sql");
