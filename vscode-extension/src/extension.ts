@@ -13,7 +13,7 @@ export async function activate(_context: vscode.ExtensionContext): Promise<void>
 	const serverModule = path.join(path.dirname(require.resolve("sqllens-language-server")), "main.js");
 	client = new LanguageClient(
 		"sqllens",
-		"sqllens SQL",
+		"sqllens: SQL language server",
 		{
 			run: { module: serverModule, transport: TransportKind.ipc },
 			debug: { module: serverModule, transport: TransportKind.ipc },

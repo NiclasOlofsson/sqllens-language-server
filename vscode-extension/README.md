@@ -1,4 +1,4 @@
-# sqllens SQL
+# sqllens: SQL language server
 
 Multi-dialect SQL language support for VS Code, powered by the
 [sqllens](https://github.com/NiclasOlofsson/sqllens) analyzer via
