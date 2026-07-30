@@ -1,3 +1,11 @@
+# [0.5.0](https://github.com/NiclasOlofsson/sqllens-language-server/compare/v0.4.0...v0.5.0) (2026-07-30)
+
+
+### Features
+
+* sqllens 1.8.0 ([d4c64df](https://github.com/NiclasOlofsson/sqllens-language-server/commit/d4c64df3b221a25e64b0afcb50a6b2bed2422c9f))
+* **vscode-extension:** display name says what it is: sqllens: SQL language server ([8aa36a9](https://github.com/NiclasOlofsson/sqllens-language-server/commit/8aa36a9da3f794e9c079ec096f0748ab515ec492))
+
 # [0.4.0](https://github.com/NiclasOlofsson/sqllens-language-server/compare/v0.3.0...v0.4.0) (2026-07-15)
 
 
